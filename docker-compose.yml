@@ -77,5 +77,21 @@ services:
       --packages
       org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0,org.postgresql:postgresql:42.6.0
       main.py
+  simulator:
+    build: ./simulator
+    container_name: simulator
+    depends_on:
+      - kafka
+    restart: always
+  consumer:
+    build: ./consumer
+    container_name: consumer
+    depends_on:
+      - kafka
+      - redis
+      - postgres
+    env_file:
+      - .env
+    restart: always
 
 

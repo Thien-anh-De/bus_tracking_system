@@ -9,7 +9,7 @@ from confluent_kafka import Producer
 # CẤU HÌNH KAFKA
 # ===============================
 producer = Producer({
-    "bootstrap.servers": "localhost:9092"
+    "bootstrap.servers": "kafka:9093"
 })
 
 TOPIC = "bus_location"
