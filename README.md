@@ -64,17 +64,16 @@ BUS_TRACKING_SYSTEM/
 │   ├── redis_store.py         # Ghi trạng thái realtime vào Redis
 │   ├── schemas.py             # Schema Spark
 │   ├── config.py              # Cấu hình DB, Kafka
-│   └── test_db.py              # Test kết nối DB
+│   └── test_db.py             # Test kết nối DB
 │
 ├── kafka_consumer.py           # Consumer xử lý logic (mở rộng)
-├── GPS_Simulator.py            # Mô phỏng GPS xe buýt (producer Kafka)
+├── GPS_Simulator.py            # Mô phỏng GPS xe buýt (Kafka producer)
 │
 ├── spark_checkpoint/           # Checkpoint Spark Streaming
 ├── docker-compose.yml          # Orchestrate Kafka, Spark, Postgres, Redis
 ├── requirements.txt            # Python dependencies
 ├── .env                        # Biến môi trường (DB, Kafka)
 └── README.md                   # Tài liệu dự án
-
 
 ## 🚍 Mô phỏng dữ liệu GPS
 
