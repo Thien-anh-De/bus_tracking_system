@@ -47,7 +47,7 @@ PostgreSQL (bus_gps_log, bus_current_status, ...)
 ---
 
 ## 📂 Cấu trúc thư mục
-'''
+```
 BUS_TRACKING_SYSTEM/
 ├── DBMS/
 │   ├── create_db.sql          # Tạo schema, bảng
@@ -74,7 +74,7 @@ BUS_TRACKING_SYSTEM/
 ├── requirements.txt            # Python dependencies
 ├── .env                        # Biến môi trường (DB, Kafka)
 └── README.md                   # Tài liệu dự án
-'''
+```
 ## 🚍 Mô phỏng dữ liệu GPS
 
 - Mỗi xe buýt có:
