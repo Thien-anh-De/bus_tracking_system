@@ -93,5 +93,13 @@ services:
     env_file:
       - .env
     restart: always
-
+  cleaner:
+    build: ./cleaner
+    container_name: cleaner
+    depends_on:
+      - postgres
+    env_file:
+      - .env
+    # Đảm bảo database đã sẵn sàng mới chạy dọn dẹp
+    restart: always
 
