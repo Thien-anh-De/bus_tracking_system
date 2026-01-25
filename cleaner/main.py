@@ -13,6 +13,7 @@ DB_PASS = os.getenv("DB_PASSWORD", "Thienanh1906@")
 RETENTION_DELTA = timedelta(minutes=1) 
 
 def run_cleanup():
+    print(f"🔍 Checking for old logs at {datetime.now()}...")
     try:
         with psycopg2.connect(host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASS) as conn:
             with conn.cursor() as cur:
