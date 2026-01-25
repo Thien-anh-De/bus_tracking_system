@@ -115,18 +115,18 @@ Các bảng chính:
 ## ▶️ Cách chạy hệ thống
 
 ### 1️⃣ Khởi động toàn bộ hệ thống
-```bash
+
 docker compose up -d
-2️⃣ Tạo Kafka topic
+###2️⃣ Tạo Kafka topic
 docker compose exec kafka kafka-topics \
   --create \
   --topic bus_location \
   --bootstrap-server kafka:9093 \
   --replication-factor 1 \
   --partitions 3
-3️⃣ Chạy GPS Simulator
+###3️⃣ Chạy GPS Simulator
 python GPS_Simulator.py
-4️⃣ Spark Streaming sẽ tự động xử lý và ghi dữ liệu
+###4️⃣ Spark Streaming sẽ tự động xử lý và ghi dữ liệu
 🧪 Kiểm tra dữ liệu
 Kiểm tra trong PostgreSQL
 SELECT COUNT(*) FROM bus_gps_log;
@@ -140,7 +140,7 @@ SELECT * FROM bus_gps_log ORDER BY ts DESC LIMIT 10;
 
 ✔️ Hệ thống container hóa hoàn chỉnh
 
-🚀 Hướng phát triển (Future Work)
+##🚀 Hướng phát triển (Future Work)
 Hiển thị bản đồ realtime (Leaflet / Mapbox)
 
 Phát hiện xe đến trạm
