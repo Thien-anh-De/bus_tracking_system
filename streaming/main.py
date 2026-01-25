@@ -1,8 +1,19 @@
+import os
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, to_timestamp
 from schemas import get_gps_schema
 from spark_reader import read_kafka_stream
 from redis_store import RedisStore
+
+# ========= 0. LẤY CẤU HÌNH TỪ BIẾN MÔI TRƯỜNG (.env) =========
+# Các biến này được nạp tự động vào Container nhờ docker-compose
+DB_HOST = os.getenv("DB_HOST", "postgres")
+DB_PORT = os.getenv("DB_PORT", "5432")
+DB_NAME = os.getenv("DB_NAME", "bus_tracking_system")
+DB_USER = os.getenv("DB_USER", "bus_user")
+DB_PASS = os.getenv("DB_PASSWORD", "Thienanh1906@") # Sẽ lấy từ .env nếu có
+
+KAFKA_SERVERS = os.getenv("KAFKA_BOOTSTRAP", "kafka:9093")
 
 # ========= 1. KHỞI TẠO SPARK SESSION =========
 spark = (
@@ -14,17 +25,15 @@ spark = (
 )
 spark.sparkContext.setLogLevel("WARN")
 
-# ========= 2. THÔNG TIN KẾT NỐI =========
-JDBC_URL = "jdbc:postgresql://host.docker.internal:5432/bus_tracking_system"
+# ========= 2. THÔNG TIN KẾT NỐI (DÙNG BIẾN ĐÃ LẤY) =========
+JDBC_URL = f"jdbc:postgresql://{DB_HOST}:{DB_PORT}/{DB_NAME}"
 DB_PROPERTIES = {
-    "user": "postgres",
-    "password": "Thienanh1906@",
+    "user": DB_USER,
+    "password": DB_PASS,
     "driver": "org.postgresql.Driver"
 }
-KAFKA_SERVERS = "kafka:9093"
 KAFKA_TOPIC = "bus_location"
 CHECKPOINT_PATH = "/tmp/bus_tracking_checkpoint"
-
 
 schema = get_gps_schema()
 redis_store = RedisStore(host="redis") 
@@ -73,7 +82,12 @@ def process_batch(batch_df, batch_id):
         
         conn = None
         try:
-            conn = spark._sc._gateway.jvm.java.sql.DriverManager.getConnection(JDBC_URL, DB_PROPERTIES["user"], DB_PROPERTIES["password"])
+            # Sử dụng thông tin từ DB_PROPERTIES để kết nối Java JVM
+            conn = spark._sc._gateway.jvm.java.sql.DriverManager.getConnection(
+                JDBC_URL, 
+                DB_PROPERTIES["user"], 
+                DB_PROPERTIES["password"]
+            )
             stmt = conn.createStatement()
             stmt.execute(upsert_query)
             stmt.close()
