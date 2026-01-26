@@ -1,156 +1,202 @@
-# 🚌 Bus Tracking System – Real-time Streaming with Kafka & Spark
+🚌 Bus Tracking System – Real-time Streaming with Kafka & Spark
 
-Hệ thống mô phỏng và xử lý **dữ liệu GPS xe buýt theo thời gian thực**, sử dụng **Apache Kafka** làm message broker, **Apache Spark Structured Streaming** để xử lý luồng dữ liệu, và **PostgreSQL** để lưu trữ dữ liệu lịch sử.  
-Toàn bộ hệ thống được **container hóa bằng Docker Compose**.
+Hệ thống mô phỏng và xử lý dữ liệu GPS xe buýt theo thời gian thực, sử dụng Apache Kafka làm message broker, Apache Spark Structured Streaming để xử lý luồng dữ liệu, và PostgreSQL để lưu trữ dữ liệu lịch sử.
+Toàn bộ hệ thống được container hóa bằng Docker Compose.
 
----
+📌 Mục tiêu hệ thống
 
-## 📌 Mục tiêu hệ thống
+Mô phỏng nhiều xe buýt di chuyển theo các tuyến cố định
 
-- Mô phỏng nhiều xe buýt di chuyển theo các tuyến cố định
-- Gửi dữ liệu GPS theo thời gian thực
-- Xử lý và lưu trữ dữ liệu GPS bằng kiến trúc streaming
-- Xây dựng nền tảng cho các bài toán:
-  - Theo dõi vị trí xe buýt realtime
-  - Phân tích lịch sử di chuyển
-  - Phát hiện xe đến trạm / lệch tuyến (có thể mở rộng)
+Gửi dữ liệu GPS theo thời gian thực
 
----
+Xử lý và lưu trữ dữ liệu GPS bằng kiến trúc streaming
 
-## 🏗️ Kiến trúc tổng thể
+Xây dựng nền tảng cho các bài toán:
 
+Theo dõi vị trí xe buýt realtime
+
+Phân tích lịch sử di chuyển
+
+Phát hiện xe đến trạm (event-based)
+
+Kiểm soát dữ liệu lớn, tránh tràn bộ nhớ
+
+🏗️ Kiến trúc tổng thể
 GPS Simulator (Python)
-|
-v
+        |
+        v
 Kafka (topic: bus_location)
-|
-v
+        |
+        v
 Spark Structured Streaming
-|
-v
-PostgreSQL (bus_gps_log, bus_current_status, ...)
+        |
+        v
+PostgreSQL
+ (bus_gps_log, bus_current_status, bus_stop_events, ...)
 
-
----
-
-## 🧩 Công nghệ sử dụng
-
-| Thành phần | Công nghệ |
-|----------|----------|
-| Message Broker | Apache Kafka |
-| Stream Processing | Apache Spark Structured Streaming |
-| Database | PostgreSQL |
-| Cache / State (mở rộng) | Redis |
-| Container hóa | Docker & Docker Compose |
-| Ngôn ngữ | Python |
-
----
-
-## 📂 Cấu trúc thư mục
-
+🧩 Công nghệ sử dụng
+Thành phần	Công nghệ
+Message Broker	Apache Kafka
+Stream Processing	Apache Spark Structured Streaming
+Database	PostgreSQL
+Cache / State (mở rộng)	Redis
+Container hóa	Docker & Docker Compose
+Ngôn ngữ	Python
+📂 Cấu trúc thư mục
 BUS_TRACKING_SYSTEM/
 ├── DBMS/
-│ ├── create_db.sql
-│ └── insert_value.sql
+│   ├── create_db.sql
+│   └── insert_value.sql
 ├── docker/
-│ └── spark/
-│ └── Dockerfile
+│   └── spark/
+│       └── Dockerfile
 ├── streaming/
-│ ├── main.py # Spark Structured Streaming job
-│ ├── spark_reader.py
-│ ├── db_reader.py
-│ ├── redis_store.py
-│ ├── schemas.py
-│ ├── config.py
-│ └── test_db.py
-├── kafka_consumer.py # Consumer xử lý logic (mở rộng)
-├── GPS_Simulator.py # Mô phỏng GPS xe buýt
+│   ├── main.py              # Spark Structured Streaming job
+│   ├── spark_reader.py
+│   ├── db_reader.py
+│   ├── redis_store.py
+│   ├── schemas.py
+│   ├── config.py
+│   └── test_db.py
+├── kafka_consumer.py        # Consumer xử lý logic (mở rộng)
+├── GPS_Simulator.py         # Mô phỏng GPS xe buýt
 ├── docker-compose.yml
 ├── requirements.txt
 ├── .env
 └── README.md
 
+🚍 Mô phỏng dữ liệu GPS
 
----
+Mỗi xe buýt có:
 
-## 🚍 Mô phỏng dữ liệu GPS
+bus_id
 
-- Mỗi xe buýt có:
-  - `bus_id`
-  - hướng di chuyển
-  - tọa độ GPS (`lat`, `lon`)
-  - tốc độ
-  - timestamp
-- Dữ liệu được gửi **liên tục theo thời gian thực** vào Kafka topic `bus_location`
+hướng di chuyển
 
----
+tọa độ GPS (lat, lon)
 
-## 🔄 Xử lý streaming với Spark
+tốc độ (random – phục vụ mô phỏng)
 
-- Spark đọc dữ liệu từ Kafka bằng **Structured Streaming**
-- Xử lý theo **micro-batch**
-- Parse dữ liệu JSON
-- Ghi dữ liệu vào PostgreSQL
-- Sử dụng **checkpoint** để đảm bảo:
-  - không mất dữ liệu khi restart
-  - đúng offset Kafka
+timestamp
 
----
+Dữ liệu được gửi liên tục theo thời gian thực vào Kafka topic bus_location
 
-## 🗄️ Database (PostgreSQL)
+🔄 Xử lý streaming với Spark
+
+Spark đọc dữ liệu từ Kafka bằng Structured Streaming
+
+Xử lý theo micro-batch
+
+Parse dữ liệu JSON
+
+Ghi dữ liệu vào PostgreSQL
+
+Sử dụng checkpoint để đảm bảo:
+
+không mất dữ liệu khi restart
+
+xử lý đúng offset Kafka
+
+🗄️ Database (PostgreSQL)
 
 Các bảng chính:
 
-- `bus_gps_log` – lưu lịch sử GPS
-- `buses` – danh sách xe buýt
-- `routes` – tuyến xe
-- `stops` – trạm dừng
-- `route_stops` – quan hệ tuyến – trạm
-- `bus_current_status` – trạng thái hiện tại (mở rộng)
+bus_gps_log – lưu lịch sử GPS (log-based)
 
----
+bus_current_status – trạng thái hiện tại của mỗi xe (snapshot)
 
-## ▶️ Cách chạy hệ thống
+bus_stop_events – sự kiện xe đến trạm (event-based)
 
-### 1️⃣ Khởi động toàn bộ hệ thống
-```bash
+buses – danh sách xe buýt
+
+routes – tuyến xe
+
+stops – trạm dừng
+
+route_stops – quan hệ tuyến – trạm
+
+🧹 Cơ chế cleanup dữ liệu (Tránh tràn bộ nhớ)
+
+Hệ thống có cleanup job tự động:
+
+xóa log GPS cũ theo thời gian
+
+chỉ giữ dữ liệu cần thiết cho phân tích
+
+Thiết kế theo hướng:
+
+log-based → phục vụ phân tích chi tiết
+
+event-based → giảm dữ liệu, phục vụ giám sát
+
+👉 Điều này giúp hệ thống:
+
+chạy lâu dài
+
+không bị tràn bộ nhớ
+
+phù hợp dữ liệu streaming lớn
+
+▶️ Cách chạy hệ thống
+1️⃣ Khởi động toàn bộ hệ thống
 docker compose up -d
+
 2️⃣ Tạo Kafka topic
-docker compose exec kafka kafka-topics \
-  --create \
-  --topic bus_location \
-  --bootstrap-server kafka:9093 \
-  --replication-factor 1 \
-  --partitions 3
+docker compose exec kafka kafka-topics --create --topic bus_location --bootstrap-server kafka:9093 --replication-factor 1 --partitions 3
+
 3️⃣ Chạy GPS Simulator
 python GPS_Simulator.py
-4️⃣ Spark Streaming sẽ tự động xử lý và ghi dữ liệu
-🧪 Kiểm tra dữ liệu
-Kiểm tra trong PostgreSQL
-SELECT COUNT(*) FROM bus_gps_log;
+
+4️⃣ Spark Streaming
+
+Spark job sẽ tự động chạy trong container và xử lý dữ liệu realtime.
+
+🧪 Xem dữ liệu bằng TERMINAL (không cần pgAdmin)
+Truy cập PostgreSQL trong Docker
+docker exec -it postgres psql -U bus_user -d bus_tracking_system
+
+Danh sách bảng
+\dt
+
+Xem log GPS (10 bản ghi mới nhất)
 SELECT * FROM bus_gps_log ORDER BY ts DESC LIMIT 10;
+
+Xem trạng thái hiện tại của xe
+SELECT * FROM bus_current_status;
+
+Xem xe đã đến trạm hay chưa
+SELECT * FROM bus_stop_events ORDER BY arrived_at DESC;
+
+
+Thoát PostgreSQL:
+
+\q
+
 ✅ Trạng thái hiện tại
+
 ✔️ Kafka hoạt động ổn định
-
 ✔️ Spark Structured Streaming chạy realtime
-
 ✔️ Dữ liệu GPS được ghi vào PostgreSQL
-
+✔️ Có cleanup tránh tràn dữ liệu
+✔️ Phát hiện xe đến trạm (event-based)
 ✔️ Hệ thống container hóa hoàn chỉnh
 
 🚀 Hướng phát triển (Future Work)
+
 Hiển thị bản đồ realtime (Leaflet / Mapbox)
-
-Phát hiện xe đến trạm
-
-Cảnh báo xe trễ tuyến
 
 Dashboard giám sát (Grafana)
 
-Machine Learning dự đoán thời gian đến trạm
+Cảnh báo xe trễ tuyến
+
+Phân tích thời gian dừng tại trạm
+
+Machine Learning dự đoán ETA
 
 📖 Ghi chú
+
 Dự án được xây dựng nhằm mục đích học tập và nghiên cứu kiến trúc xử lý dữ liệu thời gian thực (Big Data Streaming).
 
 👤 Tác giả
+
 Hoàng Thiện Anh Nguyễn
