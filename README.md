@@ -113,20 +113,72 @@ Các bảng chính:
 ---
 
 ## ▶️ Cách chạy hệ thống
-
-### 1️⃣ Khởi động toàn bộ hệ thống
 ```bash
-docker compose up -d
-2️⃣ Tạo Kafka topic
-docker compose exec kafka kafka-topics \
-  --create \
-  --topic bus_location \
-  --bootstrap-server kafka:9093 \
-  --replication-factor 1 \
-  --partitions 3
-3️⃣ Chạy GPS Simulator
-python GPS_Simulator.py
-4️⃣ Spark Streaming sẽ tự động xử lý và ghi dữ liệu
+1️⃣ Khởi động toàn bộ hệ thống
+
+docker compose up --build
+2️⃣ Theo dõi log của các service quan trọng
+🔹 Log simulator (mô phỏng GPS xe buýt)
+
+docker logs -f simulator
+
+🔹 Log Spark Streaming (ghi dữ liệu vào PostgreSQL)
+
+docker logs -f spark
+
+🔹 Log consumer (xử lý Kafka → Redis / DB)
+
+docker logs -f consumer
+
+🔹 Log cleaner (xóa log cũ, chống tràn bộ nhớ)
+
+docker logs -f cleaner
+
+3️⃣ Truy cập vào PostgreSQL trong Docker
+
+Dùng lệnh sau để vào trực tiếp database:
+
+docker exec -it postgres psql -U bus_user -d bus_tracking_system
+
+Sau khi vào được psql, bạn có thể dùng các lệnh:
+
+\dt              -- Xem danh sách bảng
+\du              -- Xem danh sách user
+
+4️⃣ Các câu lệnh SQL theo dõi log GPS xe buýt
+🔹 Xem 10 bản ghi GPS mới nhất
+SELECT * 
+FROM gps_logs 
+ORDER BY timestamp DESC 
+LIMIT 10;
+
+🔹 Đếm tổng số log GPS
+SELECT COUNT(*) FROM gps_logs;
+
+🔹 Xem log của 1 xe cụ thể (ví dụ bus_id = 1)
+SELECT * 
+FROM gps_logs 
+WHERE bus_id = 1
+ORDER BY timestamp DESC 
+LIMIT 20;
+
+5️⃣ Xem bảng arrival – theo dõi xe đã tới bến nào
+🔹 Xem toàn bộ log xe tới bến
+SELECT * 
+FROM arrival_logs 
+ORDER BY arrival_time DESC;
+
+🔹 Xem xe nào vừa tới bến gần nhất
+SELECT bus_id, stop_id, arrival_time
+FROM arrival_logs
+ORDER BY arrival_time DESC
+LIMIT 10;
+
+🔹 Xem lịch sử xe tới các bến theo từng xe
+SELECT * 
+FROM arrival_logs
+WHERE bus_id = 1
+ORDER BY arrival_time DESC;
 🧪 Kiểm tra dữ liệu
 Kiểm tra trong PostgreSQL
 SELECT COUNT(*) FROM bus_gps_log;
