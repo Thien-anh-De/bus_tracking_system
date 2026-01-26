@@ -40,3 +40,33 @@ CREATE TABLE bus_gps_log (
     ts TIMESTAMP,
     FOREIGN KEY (bus_id) REFERENCES buses(bus_id)
 );
+CREATE TABLE IF NOT EXISTS bus_stop_events (
+    id SERIAL PRIMARY KEY,
+    bus_id VARCHAR(10),
+    stop_id VARCHAR(10),
+    arrived_at TIMESTAMP,
+    distance_m DOUBLE PRECISION
+);
+DROP TABLE IF EXISTS bus_stop_events;
+
+CREATE TABLE bus_stop_events (
+    id SERIAL PRIMARY KEY,
+    bus_id VARCHAR(10) NOT NULL,
+    stop_id INT NOT NULL,
+    arrived_at TIMESTAMP NOT NULL,
+    distance_m DOUBLE PRECISION,
+
+    CONSTRAINT fk_event_bus
+        FOREIGN KEY (bus_id) REFERENCES buses(bus_id),
+
+    CONSTRAINT fk_event_stop
+        FOREIGN KEY (stop_id) REFERENCES stops(stop_id)
+);
+CREATE TABLE IF NOT EXISTS staging_bus_status (
+    bus_id VARCHAR(10),
+    lat DOUBLE PRECISION,
+    lon DOUBLE PRECISION,
+    speed INT,
+    last_update TIMESTAMP
+);
+

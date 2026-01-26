@@ -18,20 +18,20 @@ TOPIC = "bus_location"
 # DỮ LIỆU TỪ DATABASE (CẬP NHẬT TỌA ĐỘ CHÍNH XÁC)
 # ===============================
 STOPS_DATA = {
-    1: (10.7416, 106.6354),  # Ben xe Mien Tay
-    2: (10.7629, 106.6333),  # Cong vien Dam Sen
-    3: (10.7769, 106.6675),  # San van dong Phu Tho
-    4: (10.7722, 106.6694),  # Nga Sau Dan Chu
-    5: (10.8126, 106.6786),  # Cong vien Gia Dinh
-    6: (10.8188, 106.6520),  # San bay Tan Son Nhat
-    7: (10.8357, 106.6411),  # Quang Trung
-    8: (10.8443, 106.6056),  # Ben xe An Suong
-    9: (10.7720, 106.6602),  # Dai hoc Bach Khoa
-    10: (10.7536, 106.6610), # Benh vien Cho Ray
-    11: (10.7501, 106.6572), # An Dong
-    12: (10.7546, 106.6631), # Cho Lon
-    13: (10.8026, 106.7146), # Ben xe Mien Dong
-    14: (10.8019, 106.7106), # Nga Tu Hang Xanh
+    "Bến xe Miền Tây": (10.7416, 106.6354),
+    "Công viên Đầm Sen": (10.7629, 106.6333),
+    "Sân vận động Phú Thọ": (10.7769, 106.6675),
+    "Ngã Sáu Dân Chủ": (10.7722, 106.6694),
+    "Công viên Gia Định": (10.8126, 106.6786),
+    "Sân bay Tân Sơn Nhất": (10.8188, 106.6520),
+    "Quang Trung": (10.8357, 106.6411),
+    "Bến xe An Sương": (10.8443, 106.6056),
+    "Đại học Bách Khoa TP.HCM": (10.7720, 106.6602),
+    "Bệnh viện Chợ Rẫy": (10.7536, 106.6610),
+    "An Đông": (10.7501, 106.6572),
+    "Chợ Lớn": (10.7546, 106.6631),
+    "Bến xe Miền Đông": (10.8026, 106.7146),
+    "Ngã Tư Hàng Xanh": (10.8019, 106.7106),
 }
 
 ROUTES = {
