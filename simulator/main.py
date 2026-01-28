@@ -18,28 +18,65 @@ TOPIC = "bus_location"
 # DỮ LIỆU TỪ DATABASE (CẬP NHẬT TỌA ĐỘ CHÍNH XÁC)
 # ===============================
 STOPS_DATA = {
-    "Bến xe Miền Tây": (10.7416, 106.6354),
-    "Công viên Đầm Sen": (10.7629, 106.6333),
-    "Sân vận động Phú Thọ": (10.7769, 106.6675),
-    "Ngã Sáu Dân Chủ": (10.7722, 106.6694),
-    "Công viên Gia Định": (10.8126, 106.6786),
-    "Sân bay Tân Sơn Nhất": (10.8188, 106.6520),
+    "Ben xe Mien Tay": (10.7416, 106.6354),
+    "Cong vien Dam Sen": (10.7629, 106.6333),
+    "San van dong Phu Tho": (10.7769, 106.6675),
+    "Nga Sau Dan Chu": (10.7722, 106.6694),
+    "Cong vien Gia Dinh": (10.8126, 106.6786),
+    "San bay Tan Son Nhat": (10.8188, 106.6520),
     "Quang Trung": (10.8357, 106.6411),
-    "Bến xe An Sương": (10.8443, 106.6056),
-    "Đại học Bách Khoa TP.HCM": (10.7720, 106.6602),
-    "Bệnh viện Chợ Rẫy": (10.7536, 106.6610),
-    "An Đông": (10.7501, 106.6572),
-    "Chợ Lớn": (10.7546, 106.6631),
-    "Bến xe Miền Đông": (10.8026, 106.7146),
-    "Ngã Tư Hàng Xanh": (10.8019, 106.7106),
+    "Ben xe An Suong": (10.8443, 106.6056),
+
+    "Dai hoc Bach Khoa": (10.7720, 106.6602),
+    "Benh vien Cho Ray": (10.7536, 106.6610),
+    "An Dong": (10.7501, 106.6572),
+    "Cho Lon": (10.7546, 106.6631),
+
+    "Ben xe Mien Dong": (10.8026, 106.7146),
+    "Nga Tu Hang Xanh": (10.8019, 106.7106),
 }
 
+
 ROUTES = {
-    1: [1, 2, 3, 4, 5, 6, 7, 8],      
-    2: [1, 2, 3, 4, 9, 10, 11, 12],   
-    3: [13, 14, 5, 6, 7, 8],          
-    4: [5, 6, 4, 9, 10, 11, 12]       
+    1: [
+        "Ben xe Mien Tay",
+        "Cong vien Dam Sen",
+        "San van dong Phu Tho",
+        "Nga Sau Dan Chu",
+        "Cong vien Gia Dinh",
+        "San bay Tan Son Nhat",
+        "Quang Trung",
+        "Ben xe An Suong"
+    ],
+    2: [
+        "Ben xe Mien Tay",
+        "Cong vien Dam Sen",
+        "San van dong Phu Tho",
+        "Nga Sau Dan Chu",
+        "Dai hoc Bach Khoa",
+        "Benh vien Cho Ray",
+        "An Dong",
+        "Cho Lon"
+    ],
+    3: [
+        "Ben xe Mien Dong",
+        "Nga Tu Hang Xanh",
+        "Cong vien Gia Dinh",
+        "San bay Tan Son Nhat",
+        "Quang Trung",
+        "Ben xe An Suong"
+    ],
+    4: [
+        "Cong vien Gia Dinh",
+        "San bay Tan Son Nhat",
+        "Nga Sau Dan Chu",
+        "Dai hoc Bach Khoa",
+        "Benh vien Cho Ray",
+        "An Dong",
+        "Cho Lon"
+    ]
 }
+
 
 # ===============================
 # KHỞI TẠO 5 XE (Khớp với bảng buses)
