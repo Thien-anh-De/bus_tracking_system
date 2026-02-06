@@ -47,32 +47,34 @@ PostgreSQL (bus_gps_log, bus_current_status, ...)
 ---
 
 ## 📂 Cấu trúc thư mục
-
+```
 BUS_TRACKING_SYSTEM/
 ├── DBMS/
-│ ├── create_db.sql
-│ └── insert_value.sql
+│   ├── create_db.sql          # Tạo schema, bảng
+│   └── insert_value.sql       # Dữ liệu mẫu (routes, stops, buses)
+│
 ├── docker/
-│ └── spark/
-│ └── Dockerfile
+│   └── spark/
+│       └── Dockerfile         # Custom Spark image (cài Python deps)
+│
 ├── streaming/
-│ ├── main.py # Spark Structured Streaming job
-│ ├── spark_reader.py
-│ ├── db_reader.py
-│ ├── redis_store.py
-│ ├── schemas.py
-│ ├── config.py
-│ └── test_db.py
-├── kafka_consumer.py # Consumer xử lý logic (mở rộng)
-├── GPS_Simulator.py # Mô phỏng GPS xe buýt
-├── docker-compose.yml
-├── requirements.txt
-├── .env
-└── README.md
-
-
----
-
+│   ├── main.py                # Spark Structured Streaming job
+│   ├── spark_reader.py        # Đọc Kafka stream
+│   ├── db_reader.py           # Truy vấn PostgreSQL
+│   ├── redis_store.py         # Ghi trạng thái realtime vào Redis
+│   ├── schemas.py             # Schema Spark
+│   ├── config.py              # Cấu hình DB, Kafka
+│   └── test_db.py             # Test kết nối DB
+│
+├── kafka_consumer.py           # Consumer xử lý logic (mở rộng)
+├── GPS_Simulator.py            # Mô phỏng GPS xe buýt (Kafka producer)
+│
+├── spark_checkpoint/           # Checkpoint Spark Streaming
+├── docker-compose.yml          # Orchestrate Kafka, Spark, Postgres, Redis
+├── requirements.txt            # Python dependencies
+├── .env                        # Biến môi trường (DB, Kafka)
+└── README.md                   # Tài liệu dự án
+```
 ## 🚍 Mô phỏng dữ liệu GPS
 
 - Mỗi xe buýt có:
