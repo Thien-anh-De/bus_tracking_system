@@ -1,3 +1,5 @@
+version: "3.9"
+
 services:
   # ======================
   # ZOOKEEPER
@@ -51,10 +53,31 @@ services:
     ports:
       - "5432:5432"
     volumes:
+      - postgres_data:/var/lib/postgresql/data
       - ./DBMS:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   # ======================
-  # SPARK (CUSTOM IMAGE)
+  # SIMULATOR
+  # ======================
+  simulator:
+    build: ./simulator
+    container_name: simulator
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    env_file:
+      - .env
+    restart: always
+
+  # ======================
+  # SPARK
   # ======================
   spark:
     build:
@@ -63,9 +86,12 @@ services:
     container_name: spark
     user: root
     depends_on:
-      - kafka
-      - redis
-      - postgres
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      redis:
+        condition: service_started
     env_file:
       - .env
     volumes:
@@ -77,29 +103,44 @@ services:
       --packages
       org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0,org.postgresql:postgresql:42.6.0
       main.py
-  simulator:
-    build: ./simulator
-    container_name: simulator
-    depends_on:
-      - kafka
-    restart: always
-  consumer:
-    build: ./consumer
-    container_name: consumer
-    depends_on:
-      - kafka
-      - redis
-      - postgres
-    env_file:
-      - .env
-    restart: always
+
+  # ======================
+  # CLEANER
+  # ======================
   cleaner:
     build: ./cleaner
     container_name: cleaner
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     env_file:
       - .env
-    environment:
-      - PYTHONUNBUFFERED=1  # Thêm dòng này để hiện log ngay lập tức
     restart: always
+
+  # ======================
+  # DASHBOARD BACKEND
+  # ======================
+  dashboard-backend:
+    build: ./dashboard/backend
+    container_name: dashboard-backend
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "5050:5000"   # 🔥 ĐỔI PORT, KHÔNG ĐỤNG OSRM
+
+  # ======================
+  # DASHBOARD FRONTEND
+  # ======================
+  dashboard-frontend:
+    build: ./dashboard/frontend
+    container_name: dashboard-frontend
+    depends_on:
+      - dashboard-backend
+    ports:
+      - "8080:80"
+
+volumes:
+  postgres_data:

@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Bus Dashboard</title>
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    html, body, #map {
+      height: 100%;
+      margin: 0;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="map"></div>
+
+  <!-- QUAN TRỌNG: map.js trước -->
+  <script src="js/map.js"></script>
+
+  <!-- RỒI MỚI buses.js -->
+  <script src="js/buses.js"></script>
+</body>
+</html>

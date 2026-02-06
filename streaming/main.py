@@ -1,26 +1,23 @@
 import os
-import math
-
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import (
-    col, to_timestamp, current_timestamp, udf, broadcast, row_number
-)
-from pyspark.sql.types import DoubleType
+from pyspark.sql.functions import col, to_timestamp, row_number
 from pyspark.sql.window import Window
 
 from schemas import get_gps_schema
 from spark_reader import read_kafka_stream
 from redis_store import RedisStore
 
+# =====================================================
+# CONFIG
+# =====================================================
+DB_HOST = "postgres"
+DB_PORT = "5432"
+DB_NAME = "bus_tracking_system"
+DB_USER = "bus_user"
+DB_PASS = "Thienanh1906@"
 
-# ========= 0. CẤU HÌNH =========
-DB_HOST = os.getenv("DB_HOST", "postgres")
-DB_PORT = os.getenv("DB_PORT", "5432")
-DB_NAME = os.getenv("DB_NAME", "bus_tracking_system")
-DB_USER = os.getenv("DB_USER", "bus_user")
-DB_PASS = os.getenv("DB_PASSWORD", "Thienanh1906@")
-
-KAFKA_SERVERS = os.getenv("KAFKA_BOOTSTRAP", "kafka:9093")
+KAFKA_SERVERS = "kafka:9093"
+KAFKA_TOPIC = "bus_location"
 
 JDBC_URL = f"jdbc:postgresql://{DB_HOST}:{DB_PORT}/{DB_NAME}"
 DB_PROPERTIES = {
@@ -29,169 +26,114 @@ DB_PROPERTIES = {
     "driver": "org.postgresql.Driver"
 }
 
-KAFKA_TOPIC = "bus_location"
-CHECKPOINT_PATH = "/tmp/bus_tracking_checkpoint"
+CHECKPOINT_PATH = "/app/checkpoints/bus_tracking"
 
-
-# ========= 1. SPARK SESSION =========
+# =====================================================
+# SPARK SESSION
+# =====================================================
 spark = (
     SparkSession.builder
-    .appName("BusRealtimeStreaming")
+    .appName("BusStreaming-STABLE-FINAL")
     .config(
         "spark.jars.packages",
         "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0,"
         "org.postgresql:postgresql:42.6.0"
     )
-    .config("spark.sql.streaming.checkpointLocation", "/app/checkpoints")
+    .config("spark.sql.shuffle.partitions", "1")
     .getOrCreate()
 )
 
 spark.sparkContext.setLogLevel("WARN")
 
-
-# ========= 2. READ STREAM =========
-schema = get_gps_schema()
 redis_store = RedisStore(host="redis")
 
+# =====================================================
+# READ KAFKA
+# =====================================================
+schema = get_gps_schema()
+
 stream_df = read_kafka_stream(
-    spark, KAFKA_SERVERS, KAFKA_TOPIC, schema
+    spark,
+    KAFKA_SERVERS,
+    KAFKA_TOPIC,
+    schema
 )
 
-
-# ========= 3. LOAD STOPS =========
-stops_df = spark.read.jdbc(
-    url=JDBC_URL,
-    table="stops",
-    properties=DB_PROPERTIES
-).select(
-    col("stop_id"),
-    col("lat").alias("stop_lat"),
-    col("lon").alias("stop_lon")
-)
-
-stops_df = broadcast(stops_df)
-
-
-# ========= 4. HAVERSINE =========
-def haversine(lat1, lon1, lat2, lon2):
-    R = 6371000
-    phi1, phi2 = math.radians(lat1), math.radians(lat2)
-    dphi = math.radians(lat2 - lat1)
-    dlambda = math.radians(lon2 - lon1)
-
-    a = math.sin(dphi / 2) ** 2 + \
-        math.cos(phi1) * math.cos(phi2) * \
-        math.sin(dlambda / 2) ** 2
-
-    return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
-
-haversine_udf = udf(haversine, DoubleType())
-
-
-# ========= 5. PROCESS BATCH =========
+# =====================================================
+# PROCESS BATCH
+# =====================================================
 def process_batch(batch_df, batch_id):
     if batch_df.isEmpty():
         return
 
-    print(f"🚀 Processing Batch {batch_id}")
+    print(f"\n🚀 Processing batch {batch_id}")
 
-    # A. Ép kiểu thời gian
-    processed_df = batch_df.withColumn(
-        "ts_casted",
-        to_timestamp(col("timestamp"), "yyyy-MM-dd HH:mm:ss")
-    ).cache()
+    # -------------------------------------------------
+    # 1. PARSE TIMESTAMP (GIỮ ts CHO REDIS)
+    # -------------------------------------------------
+    base_df = (
+        batch_df
+        .withColumn(
+            "ts",
+            to_timestamp(col("timestamp"), "yyyy-MM-dd HH:mm:ss")
+        )
+        .select(
+            col("bus_id").cast("string").alias("bus_id"),
+            col("lat"),
+            col("lon"),
+            col("speed"),
+            col("direction"),
+            col("ts")
+        )
+        .cache()
+    )
 
-    # B. Redis
-    redis_store.save_location_batch(processed_df.collect())
+    # -------------------------------------------------
+    # 2. REDIS (REALTIME MAP) – FIX LỖI ts
+    # -------------------------------------------------
+    redis_store.save_location_batch(base_df.collect())
 
-    # C. GPS LOG
-    processed_df.select(
-        "bus_id", "lat", "lon", "speed",
-        col("ts_casted").alias("ts")
-    ).write.jdbc(
+    # -------------------------------------------------
+    # 3. GPS LOG
+    # -------------------------------------------------
+    base_df.write.jdbc(
         url=JDBC_URL,
         table="bus_gps_log",
         mode="append",
         properties=DB_PROPERTIES
     )
 
-    # ========= D. CURRENT STATUS =========
-    window_spec = Window.partitionBy("bus_id").orderBy(col("ts_casted").desc())
+    # -------------------------------------------------
+    # 4. CURRENT STATUS
+    # -------------------------------------------------
+    w = Window.partitionBy("bus_id").orderBy(col("ts").desc())
 
-    status_df = processed_df \
-        .withColumn("rn", row_number().over(window_spec)) \
-        .filter(col("rn") == 1) \
+    status_df = (
+        base_df
+        .withColumn("rn", row_number().over(w))
+        .filter(col("rn") == 1)
         .select(
             "bus_id",
             "lat",
             "lon",
             "speed",
-            col("ts_casted").alias("last_update")
+            "direction",
+            col("ts").alias("last_update")   # ⭐ map ts → last_update
         )
+    )
 
     status_df.write.jdbc(
         url=JDBC_URL,
-        table="staging_bus_status",
+        table="bus_current_status",
         mode="overwrite",
         properties=DB_PROPERTIES
     )
 
-    merge_sql = """
-    MERGE INTO public.bus_current_status t
-    USING public.staging_bus_status s
-    ON t.bus_id = s.bus_id
-    WHEN MATCHED THEN
-      UPDATE SET
-        lat = s.lat,
-        lon = s.lon,
-        speed = s.speed,
-        last_update = s.last_update
-    WHEN NOT MATCHED THEN
-      INSERT (bus_id, lat, lon, speed, last_update)
-      VALUES (s.bus_id, s.lat, s.lon, s.speed, s.last_update);
-    """
+    base_df.unpersist()
 
-    conn = spark._sc._gateway.jvm.java.sql.DriverManager.getConnection(
-        JDBC_URL,
-        DB_PROPERTIES["user"],
-        DB_PROPERTIES["password"]
-    )
-    stmt = conn.createStatement()
-    stmt.execute(merge_sql)
-    stmt.close()
-    conn.close()
-
-    # ========= E. ⭐ PHÁT HIỆN XE TỚI BẾN (ĐƠN GIẢN – CHẮC ĂN) =========
-    arrival_df = processed_df.join(stops_df) \
-        .withColumn(
-            "distance_m",
-            haversine_udf(
-                col("lat"), col("lon"),
-                col("stop_lat"), col("stop_lon")
-            )
-        ).filter(
-            col("distance_m") < 80   # 👉 CHỈ DÙNG KHOẢNG CÁCH
-        ).select(
-            "bus_id",
-            "stop_id",
-            current_timestamp().alias("arrived_at"),
-            "distance_m"
-        )
-
-    if not arrival_df.isEmpty():
-        arrival_df.write.jdbc(
-            url=JDBC_URL,
-            table="bus_stop_events",
-            mode="append",
-            properties=DB_PROPERTIES
-        )
-        print(f"🚌 Arrival events: {arrival_df.count()}")
-
-    processed_df.unpersist()
-
-
-# ========= 6. START STREAM =========
+# =====================================================
+# START STREAM
+# =====================================================
 query = (
     stream_df.writeStream
     .foreachBatch(process_batch)

@@ -1,3 +1,0 @@
-confluent-kafka
-redis
-psycopg2-binary

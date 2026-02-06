@@ -1,109 +1,228 @@
 import time
 import json
+import math
 import random
 from datetime import datetime
-from math import sqrt
+
+import psycopg2
 from confluent_kafka import Producer
 
-# ===============================
-# CẤU HÌNH KAFKA
-# ===============================
-producer = Producer({
-    "bootstrap.servers": "kafka:9093"
-})
-
+# ======================================================
+# CONFIG
+# ======================================================
+KAFKA_BOOTSTRAP = "kafka:9093"
 TOPIC = "bus_location"
 
-# ===============================
-# DỮ LIỆU TỪ DATABASE (CẬP NHẬT TỌA ĐỘ CHÍNH XÁC)
-# ===============================
-STOPS_DATA = {
-    "Bến xe Miền Tây": (10.7416, 106.6354),
-    "Công viên Đầm Sen": (10.7629, 106.6333),
-    "Sân vận động Phú Thọ": (10.7769, 106.6675),
-    "Ngã Sáu Dân Chủ": (10.7722, 106.6694),
-    "Công viên Gia Định": (10.8126, 106.6786),
-    "Sân bay Tân Sơn Nhất": (10.8188, 106.6520),
-    "Quang Trung": (10.8357, 106.6411),
-    "Bến xe An Sương": (10.8443, 106.6056),
-    "Đại học Bách Khoa TP.HCM": (10.7720, 106.6602),
-    "Bệnh viện Chợ Rẫy": (10.7536, 106.6610),
-    "An Đông": (10.7501, 106.6572),
-    "Chợ Lớn": (10.7546, 106.6631),
-    "Bến xe Miền Đông": (10.8026, 106.7146),
-    "Ngã Tư Hàng Xanh": (10.8019, 106.7106),
+DB_CONFIG = {
+    "host": "postgres",
+    "port": 5432,
+    "database": "bus_tracking_system",
+    "user": "bus_user",
+    "password": "Thienanh1906@"
 }
 
-ROUTES = {
-    1: [1, 2, 3, 4, 5, 6, 7, 8],      
-    2: [1, 2, 3, 4, 9, 10, 11, 12],   
-    3: [13, 14, 5, 6, 7, 8],          
-    4: [5, 6, 4, 9, 10, 11, 12]       
-}
+SLEEP_TIME = 0.5          # giây giữa mỗi lần gửi GPS
+TURNAROUND_SLEEP = 5     # dừng ở cuối tuyến
+EARTH_RADIUS = 6371000
+STOP_GPS_REPEAT = 3      # số bản tin GPS khi đứng bến
 
-# ===============================
-# KHỞI TẠO 5 XE (Khớp với bảng buses)
-# ===============================
-buses = [
-    {"bus_id": "01", "route_id": 1, "stops": ROUTES[1], "current_idx": 0, "dir": 1},
-    {"bus_id": "02", "route_id": 1, "stops": ROUTES[1], "current_idx": 4, "dir": 1},
-    {"bus_id": "03", "route_id": 2, "stops": ROUTES[2], "current_idx": 0, "dir": 1},
-    {"bus_id": "04", "route_id": 3, "stops": ROUTES[3], "current_idx": 0, "dir": 1},
-    {"bus_id": "05", "route_id": 4, "stops": ROUTES[4], "current_idx": 0, "dir": 1},
-]
+# ======================================================
+# KAFKA
+# ======================================================
+producer = Producer({
+    "bootstrap.servers": KAFKA_BOOTSTRAP,
+    "linger.ms": 10
+})
 
-for b in buses:
-    start_pos = STOPS_DATA[b["stops"][b["current_idx"]]]
-    b["lat"], b["lon"] = start_pos
+# ======================================================
+# GEO HELPERS
+# ======================================================
+def haversine(lat1, lon1, lat2, lon2):
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
 
-STEP = 0.0006  
+    a = (
+        math.sin(dphi / 2) ** 2 +
+        math.cos(phi1) * math.cos(phi2) *
+        math.sin(dlambda / 2) ** 2
+    )
+    return 2 * EARTH_RADIUS * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
-print("🚍 GPS Simulator is running for 5 buses...")
-print("Press Ctrl+C to stop.\n")
 
-# ===============================
-# VÒNG LẶP GIẢ LẬP CHÍNH
-# ===============================
-try:
-    while True:
-        for b in buses:
-            # 1. Xác định trạm mục tiêu
-            target_stop_id = b["stops"][b["current_idx"] + b["dir"]]
-            tlat, tlon = STOPS_DATA[target_stop_id]
+def build_segments(points):
+    segments = []
+    total = 0.0
 
-            # 2. Tính toán di chuyển
-            dlat = tlat - b["lat"]
-            dlon = tlon - b["lon"]
-            dist = sqrt(dlat**2 + dlon**2)
+    for i in range(len(points) - 1):
+        p1, p2 = points[i], points[i + 1]
+        length = haversine(p1[0], p1[1], p2[0], p2[1])
 
-            # 3. Kiểm tra trạm dừng & Đảo chiều
-            if dist < 0.0008:
-                b["current_idx"] += b["dir"]
-                if b["current_idx"] + b["dir"] >= len(b["stops"]) or b["current_idx"] + b["dir"] < 0:
-                    b["dir"] *= -1
-            else:
-                b["lat"] += STEP * dlat / dist
-                b["lon"] += STEP * dlon / dist
+        segments.append({
+            "from": p1,
+            "to": p2,
+            "length": length,
+            "start": total,
+            "end": total + length
+        })
+        total += length
 
-            # 4. Tạo Payload
+    return segments, total
+
+
+def locate_on_segments(segments, dist):
+    for s in segments:
+        if s["start"] <= dist <= s["end"]:
+            ratio = (dist - s["start"]) / s["length"] if s["length"] > 0 else 0
+            lat = s["from"][0] + (s["to"][0] - s["from"][0]) * ratio
+            lon = s["from"][1] + (s["to"][1] - s["from"][1]) * ratio
+            return lat, lon
+
+    return segments[-1]["to"]
+
+# ======================================================
+# LOAD DATA
+# ======================================================
+print("🚀 Simulator starting...", flush=True)
+
+conn = psycopg2.connect(**DB_CONFIG)
+cur = conn.cursor()
+
+cur.execute("SELECT bus_id, route_id FROM buses")
+bus_rows = cur.fetchall()
+
+if not bus_rows:
+    raise RuntimeError("❌ Bảng buses rỗng")
+
+route_cache = {}
+buses = []
+
+for bus_id, route_id in bus_rows:
+    cur.execute("""
+        SELECT lat, lon
+        FROM route_points
+        WHERE route_id = %s
+        ORDER BY point_order
+    """, (route_id,))
+    points = cur.fetchall()
+
+    if len(points) < 2:
+        raise RuntimeError(f"❌ Route {route_id} thiếu route_points")
+
+    if route_id not in route_cache:
+        seg_fwd, len_fwd = build_segments(points)
+        seg_bwd, len_bwd = build_segments(list(reversed(points)))
+
+        route_cache[route_id] = {
+            "forward": (seg_fwd, len_fwd, points[0], points[-1]),
+            "backward": (seg_bwd, len_bwd, points[-1], points[0])
+        }
+
+    buses.append({
+        "bus_id": bus_id,
+        "route_id": route_id,
+        "direction": "forward",
+        "segments": route_cache[route_id]["forward"][0],
+        "route_len": route_cache[route_id]["forward"][1],
+        "start_point": route_cache[route_id]["forward"][2],
+        "end_point": route_cache[route_id]["forward"][3],
+        "distance": 0.0,
+        "speed": random.randint(35, 50),
+        "trip_id": 1,
+        "state": "AT_START"   # AT_START → RUNNING → AT_END
+    })
+
+cur.close()
+conn.close()
+
+print("✅ Simulator READY", flush=True)
+print("------------------------------------------------", flush=True)
+
+# ======================================================
+# MAIN LOOP
+# ======================================================
+while True:
+    for b in buses:
+
+        # ===== ĐỨNG Ở BẾN ĐẦU =====
+        if b["state"] == "AT_START":
+            lat, lon = b["start_point"]
+
+            for _ in range(STOP_GPS_REPEAT):
+                payload = {
+                    "bus_id": b["bus_id"],
+                    "route_id": b["route_id"],
+                    "lat": round(lat, 6),
+                    "lon": round(lon, 6),
+                    "speed": 0,
+                    "direction": b["direction"],
+                    "trip_id": b["trip_id"],
+                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                }
+                producer.produce(TOPIC, json.dumps(payload))
+                print(f"🅿️ BUS {b['bus_id']} đứng bến", flush=True)
+                time.sleep(SLEEP_TIME)
+
+            b["state"] = "RUNNING"
+            continue
+
+        # ===== ĐANG CHẠY =====
+        if b["state"] == "RUNNING":
+            speed_mps = b["speed"] * 1000 / 3600
+            b["distance"] += speed_mps * SLEEP_TIME
+
+            if b["distance"] >= b["route_len"]:
+                b["state"] = "AT_END"
+                continue
+
+            lat, lon = locate_on_segments(b["segments"], b["distance"])
+
             payload = {
                 "bus_id": b["bus_id"],
-                "lat": round(b["lat"], 6),
-                "lon": round(b["lon"], 6),
-                "speed": random.randint(30, 50),
+                "route_id": b["route_id"],
+                "lat": round(lat, 6),
+                "lon": round(lon, 6),
+                "speed": b["speed"],
+                "direction": b["direction"],
+                "trip_id": b["trip_id"],
                 "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             }
 
-            # 5. Gửi vào Kafka
-            producer.produce(TOPIC, value=json.dumps(payload))
-            
-            # 6. IN LOG (Kết hợp thông số và trạng thái trạm)
-            direction_str = ">>" if b["dir"] == 1 else "<<"
-            print(f"[{payload['timestamp']}] Bus {b['bus_id']} {direction_str} To Stop {target_stop_id} | GPS: ({payload['lat']}, {payload['lon']})")
+            producer.produce(TOPIC, json.dumps(payload))
+            print(
+                f"📍 BUS {b['bus_id']} | {payload['lat']},{payload['lon']}",
+                flush=True
+            )
+            continue
 
-        producer.poll(0)
-        print("-" * 85) # Ngăn cách mỗi giây dữ liệu
-        time.sleep(1)
+        # ===== ĐỨNG Ở BẾN CUỐI =====
+        if b["state"] == "AT_END":
+            lat, lon = b["end_point"]
 
-except KeyboardInterrupt:
-    print("\n🛑 Simulator stopped.")
+            for _ in range(STOP_GPS_REPEAT):
+                ppayload = {
+                    "bus_id": b["bus_id"],
+                    "route_id": b["route_id"],
+                    "lat": round(lat, 6),
+                    "lon": round(lon, 6),
+                    "speed": b["speed"],
+                    "direction": 0 if b["direction"] == "forward" else 1,  # ⭐ FIX
+                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                }
+                producer.produce(TOPIC, json.dumps(payload))
+                print(f"🛑 BUS {b['bus_id']} cuối tuyến", flush=True)
+                time.sleep(SLEEP_TIME)
+
+            # đảo chiều
+            b["direction"] = "backward" if b["direction"] == "forward" else "forward"
+            seg, length, start, end = route_cache[b["route_id"]][b["direction"]]
+            b["segments"] = seg
+            b["route_len"] = length
+            b["start_point"] = start
+            b["end_point"] = end
+            b["distance"] = 0.0
+            b["trip_id"] += 1
+            b["state"] = "AT_START"
+
+    producer.poll(0)
+    time.sleep(SLEEP_TIME)

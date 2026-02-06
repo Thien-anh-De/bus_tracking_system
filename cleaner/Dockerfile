@@ -1,17 +1,21 @@
 FROM python:3.11-slim
 
-# Thiết lập thư mục làm việc
 WORKDIR /app
 
-# Cài đặt thư viện hệ thống cần thiết cho psycopg2
-RUN apt-get update && apt-get install -y libpq-dev gcc && rm -rf /var/lib/apt/lists/*
+# Cài thư viện hệ thống cho psycopg2
+RUN apt-get update \
+    && apt-get install -y libpq-dev gcc \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy và cài đặt thư viện python
+# Copy requirements
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy mã nguồn
+# Copy source
 COPY main.py .
 
-# Chạy script
+# 🔥 TẮT BUFFER STDOUT
+ENV PYTHONUNBUFFERED=1
+
+# Chạy cleaner
 CMD ["python", "main.py"]
