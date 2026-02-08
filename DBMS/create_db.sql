@@ -1,9 +1,6 @@
--- ==========================================================
--- PHẦN 1: CLEANUP
--- ==========================================================
+-- ================= CLEANUP =================
 DROP TABLE IF EXISTS bus_stop_events CASCADE;
 DROP TABLE IF EXISTS bus_gps_log CASCADE;
-DROP TABLE IF EXISTS staging_bus_status CASCADE;
 DROP TABLE IF EXISTS bus_current_status CASCADE;
 DROP TABLE IF EXISTS route_stops CASCADE;
 DROP TABLE IF EXISTS route_points CASCADE;
@@ -11,11 +8,7 @@ DROP TABLE IF EXISTS buses CASCADE;
 DROP TABLE IF EXISTS stops CASCADE;
 DROP TABLE IF EXISTS routes CASCADE;
 
--- ==========================================================
--- PHẦN 2: SCHEMA
--- ==========================================================
-
--- 1. Routes
+-- ================= ROUTES =================
 CREATE TABLE routes (
     route_id INT PRIMARY KEY,
     route_name TEXT,
@@ -23,7 +16,7 @@ CREATE TABLE routes (
     end_depot TEXT
 );
 
--- 2. Stops
+-- ================= STOPS =================
 CREATE TABLE stops (
     stop_id INT PRIMARY KEY,
     stop_name TEXT,
@@ -31,63 +24,57 @@ CREATE TABLE stops (
     lon DOUBLE PRECISION
 );
 
--- 3. Route - Stops
+-- ================= ROUTE_STOPS =================
 CREATE TABLE route_stops (
-    route_id INT,
-    stop_id INT,
+    route_id INT REFERENCES routes(route_id),
+    stop_id INT REFERENCES stops(stop_id),
     stop_order INT,
-    PRIMARY KEY (route_id, stop_id),
-    FOREIGN KEY (route_id) REFERENCES routes(route_id),
-    FOREIGN KEY (stop_id) REFERENCES stops(stop_id)
+    PRIMARY KEY (route_id, stop_id)
 );
 
--- 4. Buses
+-- ================= BUSES =================
 CREATE TABLE buses (
     bus_id VARCHAR(10) PRIMARY KEY,
-    route_id INT,
-    FOREIGN KEY (route_id) REFERENCES routes(route_id)
+    route_id INT REFERENCES routes(route_id)
 );
 
--- 5. Route points (geometry truth)
+-- ================= ROUTE_POINTS =================
 CREATE TABLE route_points (
     id SERIAL PRIMARY KEY,
-    route_id INT NOT NULL,
-    point_order INT NOT NULL,
-    lat DOUBLE PRECISION NOT NULL,
-    lon DOUBLE PRECISION NOT NULL,
-    FOREIGN KEY (route_id) REFERENCES routes(route_id),
-    CONSTRAINT uq_route_point UNIQUE (route_id, point_order)
+    route_id INT REFERENCES routes(route_id),
+    point_order INT,
+    lat DOUBLE PRECISION,
+    lon DOUBLE PRECISION,
+    UNIQUE (route_id, point_order)
 );
 
--- 6. GPS log
+-- ================= GPS LOG =================
 CREATE TABLE bus_gps_log (
     id SERIAL PRIMARY KEY,
-    bus_id VARCHAR(10),
+    bus_id VARCHAR(10) REFERENCES buses(bus_id),
     lat DOUBLE PRECISION,
     lon DOUBLE PRECISION,
     speed INT,
     direction INT,
-    ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (bus_id) REFERENCES buses(bus_id)
+    ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 7. Stop events
+-- ================= STOP EVENTS =================
 CREATE TABLE bus_stop_events (
     id SERIAL PRIMARY KEY,
-    bus_id VARCHAR(10),
-    stop_id INT,
+    bus_id VARCHAR(10) REFERENCES buses(bus_id),
+    stop_id INT REFERENCES stops(stop_id),
+    trip_id INT,
     arrived_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    distance_m DOUBLE PRECISION,
-    FOREIGN KEY (bus_id) REFERENCES buses(bus_id),
-    FOREIGN KEY (stop_id) REFERENCES stops(stop_id)
+    distance_m DOUBLE PRECISION
 );
 
--- 8. Current status (⭐ KHÔNG ALTER THÊM)
+-- ================= CURRENT STATUS =================
 CREATE TABLE bus_current_status (
     bus_id VARCHAR(10) PRIMARY KEY,
     lat DOUBLE PRECISION,
     lon DOUBLE PRECISION,
     speed INT,
     direction INT,
-    last_update TIMESTAMP
+    last_update TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

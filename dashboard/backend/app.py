@@ -1,44 +1,19 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
 from db import get_conn
-from datetime import datetime, timedelta
 
 app = Flask(__name__)
 CORS(app)
 
-# ================= SAFE UTILS =================
-def safe_int(v, default=0):
-    try:
-        return int(v)
-    except Exception:
-        return default
-
-
-def safe_float(v):
-    try:
-        return float(v)
-    except Exception:
-        return None
-
-
-def safe_datetime(v):
-    if isinstance(v, datetime):
-        return v
-    try:
-        return datetime.fromisoformat(str(v))
-    except Exception:
-        return datetime.now()
-
-
 # ================= API =================
-@app.route("/buses")
-def get_buses():
+
+@app.route("/api/buses")
+def buses():
     conn = get_conn()
     cur = conn.cursor()
 
-    # ✅ CHỈ LẤY XE CÒN ONLINE (≤ 30s)
     cur.execute("""
-        SELECT 
+        SELECT
             s.bus_id,
             b.route_id,
             s.lat,
@@ -48,7 +23,6 @@ def get_buses():
             s.last_update
         FROM bus_current_status s
         JOIN buses b ON s.bus_id = b.bus_id
-        WHERE s.last_update >= NOW() - INTERVAL '30 seconds'
         ORDER BY s.bus_id
     """)
 
@@ -56,29 +30,59 @@ def get_buses():
     cur.close()
     conn.close()
 
-    result = []
+    return jsonify([
+        {
+            "bus_id": r[0],
+            "route_id": r[1],
+            "lat": float(r[2]),
+            "lon": float(r[3]),
+            "speed": r[4],
+            "direction": r[5],
+            # ✅ FIX OFFLINE: ISO 8601
+            "updated_at": r[6].isoformat()
+        }
+        for r in rows
+    ])
 
-    for bus_id, route_id, lat, lon, speed, direction, last_update in rows:
-        lat = safe_float(lat)
-        lon = safe_float(lon)
 
-        # 🚨 GPS rác → bỏ
-        if lat is None or lon is None:
-            continue
+@app.route("/api/stops")
+def stops():
+    conn = get_conn()
+    cur = conn.cursor()
 
-        result.append({
-            "bus_id": str(bus_id),
-            "route_id": int(route_id),   # ⭐ frontend dùng
-            "lat": lat,
-            "lon": lon,
-            "speed": safe_int(speed),
-            "direction": safe_int(direction),
-            "updated_at": safe_datetime(last_update).strftime(
-                "%Y-%m-%d %H:%M:%S"
+    cur.execute("""
+        SELECT
+          s.stop_id,
+          s.stop_name,
+          s.lat,
+          s.lon,
+          json_agg(
+            json_build_object(
+              'route_id', rs.route_id,
+              'stop_order', rs.stop_order
             )
-        })
+            ORDER BY rs.stop_order
+          )
+        FROM stops s
+        JOIN route_stops rs ON s.stop_id = rs.stop_id
+        GROUP BY s.stop_id
+        ORDER BY s.stop_id
+    """)
 
-    return jsonify(result)
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    return jsonify([
+        {
+            "stop_id": r[0],
+            "stop_name": r[1],
+            "lat": float(r[2]),
+            "lon": float(r[3]),
+            "routes": r[4]
+        }
+        for r in rows
+    ])
 
 
 @app.route("/health")
@@ -86,6 +90,5 @@ def health():
     return jsonify({"status": "ok"})
 
 
-# ================= MAIN =================
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

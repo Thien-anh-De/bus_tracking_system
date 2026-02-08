@@ -1,36 +1,112 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8" />
-  <title>Bus Dashboard</title>
-
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
+  <meta charset="utf-8"/>
+  <title>Bus Tracking Dashboard</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  
   <style>
-    html, body, #map {
-      height: 100%;
-      margin: 0;
+    /* Reset CSS để map full màn hình */
+    html, body { height: 100%; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    
+    #map {
+      width: 100%;
+      height: 100vh; /* Quan trọng: Đảm bảo chiều cao viewport */
+      z-index: 1;
     }
 
-    .bus-label {
-      padding: 2px 6px;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: bold;
-      color: #fff;
-      white-space: nowrap;
+    /* Sidebar Dashboard giống hình 2 */
+    #dashboard {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 380px;
+      max-height: 90vh;
+      background: white;
+      z-index: 1000; /* Nổi lên trên map */
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
+
+    .dash-header {
+      padding: 15px;
+      background: #f8f9fa;
+      border-bottom: 1px solid #ddd;
+      font-weight: bold;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    #bus-list {
+      padding: 0;
+      margin: 0;
+      overflow-y: auto;
+      flex-grow: 1;
+    }
+
+    .bus-card {
+      padding: 12px 15px;
+      border-bottom: 1px solid #eee;
+      transition: background 0.2s;
+    }
+    .bus-card:hover { background: #f0f8ff; }
+
+    .bus-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 5px;
+    }
+
+    .bus-id { 
+        font-weight: bold; 
+        color: #1976d2; 
+        font-size: 15px;
+    }
+
+    .bus-speed { color: #555; font-size: 13px; }
+    
+    .status-dot {
+      height: 10px; width: 10px;
+      background-color: #ccc;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 5px;
+    }
+    .status-online { background-color: #2ecc71; }
+    .status-offline { background-color: #e74c3c; }
+
+    .bus-next-stop {
+      font-size: 13px;
+      color: #333;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-weight: 500;
+    }
+    .bus-next-stop span { color: #000; font-weight: bold; }
+    .icon-arrow { color: #1976d2; font-weight: bold;}
+
   </style>
 </head>
 
 <body>
   <div id="map"></div>
 
-  <!-- CHỈ LOAD 1 FILE -->
+  <div id="dashboard">
+    <div class="dash-header">
+      🚌 Danh sách xe
+    </div>
+    <div id="bus-list">
+      <div style="padding:20px; text-align:center; color:#888">Đang tải dữ liệu...</div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="js/map.js"></script>
 </body>
 </html>

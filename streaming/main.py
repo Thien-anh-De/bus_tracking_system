@@ -69,7 +69,7 @@ def process_batch(batch_df, batch_id):
     print(f"\n🚀 Processing batch {batch_id}")
 
     # -------------------------------------------------
-    # 1. PARSE TIMESTAMP (GIỮ ts CHO REDIS)
+    # 1. PARSE + CHUẨN HÓA DATA
     # -------------------------------------------------
     base_df = (
         batch_df
@@ -79,22 +79,23 @@ def process_batch(batch_df, batch_id):
         )
         .select(
             col("bus_id").cast("string").alias("bus_id"),
-            col("lat"),
-            col("lon"),
-            col("speed"),
-            col("direction"),
+            col("lat").cast("double"),
+            col("lon").cast("double"),
+            col("speed").cast("int"),
+            col("direction").cast("int"),
             col("ts")
         )
+        .filter(col("ts").isNotNull())
         .cache()
     )
 
     # -------------------------------------------------
-    # 2. REDIS (REALTIME MAP) – FIX LỖI ts
+    # 2. REDIS – REALTIME MAP
     # -------------------------------------------------
     redis_store.save_location_batch(base_df.collect())
 
     # -------------------------------------------------
-    # 3. GPS LOG
+    # 3. GPS LOG (APPEND OK)
     # -------------------------------------------------
     base_df.write.jdbc(
         url=JDBC_URL,
@@ -104,11 +105,11 @@ def process_batch(batch_df, batch_id):
     )
 
     # -------------------------------------------------
-    # 4. CURRENT STATUS
+    # 4. CURRENT STATUS (LẤY BẢN GHI MỚI NHẤT MỖI XE)
     # -------------------------------------------------
     w = Window.partitionBy("bus_id").orderBy(col("ts").desc())
 
-    status_df = (
+    latest_df = (
         base_df
         .withColumn("rn", row_number().over(w))
         .filter(col("rn") == 1)
@@ -118,16 +119,47 @@ def process_batch(batch_df, batch_id):
             "lon",
             "speed",
             "direction",
-            col("ts").alias("last_update")   # ⭐ map ts → last_update
+            col("ts").alias("last_update")
         )
     )
 
-    status_df.write.jdbc(
+    # 👉 GHI VÀO BẢNG TẠM
+    temp_table = "bus_current_status_tmp"
+
+    latest_df.write.jdbc(
         url=JDBC_URL,
-        table="bus_current_status",
+        table=temp_table,
         mode="overwrite",
         properties=DB_PROPERTIES
     )
+
+    # 👉 UPSERT BẰNG SQL (QUAN TRỌNG)
+    import psycopg2
+    conn = psycopg2.connect(
+        host=DB_HOST,
+        port=DB_PORT,
+        database=DB_NAME,
+        user=DB_USER,
+        password=DB_PASS
+    )
+    cur = conn.cursor()
+
+    cur.execute("""
+        INSERT INTO bus_current_status
+        (bus_id, lat, lon, speed, direction, last_update)
+        SELECT bus_id, lat, lon, speed, direction, last_update
+        FROM bus_current_status_tmp
+        ON CONFLICT (bus_id) DO UPDATE SET
+            lat = EXCLUDED.lat,
+            lon = EXCLUDED.lon,
+            speed = EXCLUDED.speed,
+            direction = EXCLUDED.direction,
+            last_update = EXCLUDED.last_update
+    """)
+
+    conn.commit()
+    cur.close()
+    conn.close()
 
     base_df.unpersist()
 
