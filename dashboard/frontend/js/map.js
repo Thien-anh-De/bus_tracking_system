@@ -42,15 +42,18 @@ function busIcon(color, label) {
 const stopIcon = L.divIcon({
   html: `
     <div style="
-      width:16px;height:16px;
-      background:#1976d2;
-      border-radius:4px;
-      border:2px solid white;
+      width:14px;
+      height:14px;
+      background:#1e88e5;
+      border:3px solid white;
+      border-radius:50%;
+      box-shadow:0 0 4px rgba(0,0,0,.4);
     "></div>
   `,
-  iconSize: [16, 16],
-  iconAnchor: [8, 8]
+  iconSize: [14, 14],
+  iconAnchor: [7, 7]
 });
+
 
 // ================= HELPERS =================
 function haversine(lat1, lon1, lat2, lon2) {
@@ -225,9 +228,6 @@ function updateBuses() {
           <div class="bus-row">
             🚌 <b>${b.bus_id}</b> |
             ${b.speed} km/h |
-            <span class="${online ? "online":"offline"}">
-              ${online ? "online":"offline"}
-            </span><br>
             ➡️ Bến tới: <b>${findNextStop(busState[b.bus_id])}</b>
           </div>
         `;
