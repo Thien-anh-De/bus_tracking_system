@@ -1,210 +1,239 @@
-# 🚌 Bus Tracking System – Real-time Streaming with Kafka & Spark
+# 🚌 Bus Tracking System  
+### Nền tảng theo dõi xe buýt realtime & dự đoán ETA
 
-Hệ thống mô phỏng và xử lý **dữ liệu GPS xe buýt theo thời gian thực**, sử dụng **Apache Kafka** làm message broker, **Apache Spark Structured Streaming** để xử lý luồng dữ liệu, và **PostgreSQL** để lưu trữ dữ liệu lịch sử.  
-Toàn bộ hệ thống được **container hóa bằng Docker Compose**.
+**Bus Tracking System** là một hệ thống **full-stack theo thời gian thực**, mô phỏng chuyển động xe buýt, xử lý dữ liệu GPS dạng streaming và trực quan hóa **xe buýt – tuyến đường – bến xe – ETA** trên bản đồ tương tác.
 
----
-
-## 📌 Mục tiêu hệ thống
-
-- Mô phỏng nhiều xe buýt di chuyển theo các tuyến cố định
-- Gửi dữ liệu GPS theo thời gian thực
-- Xử lý và lưu trữ dữ liệu GPS bằng kiến trúc streaming
-- Xây dựng nền tảng cho các bài toán:
-  - Theo dõi vị trí xe buýt realtime
-  - Phân tích lịch sử di chuyển
-  - Phát hiện xe đến trạm / lệch tuyến (có thể mở rộng)
+> Dự án thể hiện năng lực thực hành về **Hệ phân tán (Distributed Systems)**, **Dữ liệu thời gian thực (Streaming Data)**, **Backend API**, và **Realtime Visualization**, phù hợp sử dụng cho **portfolio cá nhân và CV**.
 
 ---
 
-## 🏗️ Kiến trúc tổng thể
+## 📌 Bài toán đặt ra
 
-GPS Simulator (Python)
-|
-v
-Kafka (topic: bus_location)
-|
-v
-Spark Structured Streaming
-|
-v
-PostgreSQL (bus_gps_log, bus_current_status, ...)
+Hệ thống giao thông công cộng cần:
+- Theo dõi phương tiện theo thời gian thực
+- Ước lượng chính xác thời gian xe đến bến (ETA)
+- Trực quan hóa dữ liệu dễ hiểu cho người dùng và nhà vận hành
 
+Tuy nhiên, nhiều hệ thống demo thường gặp vấn đề:
+- Trộn xe của các tuyến khác nhau khi tính ETA
+- Tính ETA bằng khoảng cách thẳng → sai lệch lớn
+- Dữ liệu realtime không nhất quán
 
----
-
-## 🧩 Công nghệ sử dụng
-
-| Thành phần | Công nghệ |
-|----------|----------|
-| Message Broker | Apache Kafka |
-| Stream Processing | Apache Spark Structured Streaming |
-| Database | PostgreSQL |
-| Cache / State (mở rộng) | Redis |
-| Container hóa | Docker & Docker Compose |
-| Ngôn ngữ | Python |
+👉 Dự án này giải quyết các hạn chế trên bằng cách xây dựng **hệ thống theo dõi xe buýt realtime có nhận thức tuyến (route-aware)** từ đầu.
 
 ---
 
-## 📂 Cấu trúc thư mục
+## 🎯 Mục tiêu dự án
+
+- Mô phỏng chuyển động xe buýt trên các tuyến cố định
+- Theo dõi nhiều xe buýt theo thời gian thực
+- Tính **ETA chính xác cho từng bến, từng tuyến**
+- Hiển thị dữ liệu realtime trên bản đồ tương tác
+- Thiết kế kiến trúc rõ ràng, dễ mở rộng
+
+---
+
+## 🏗️ Kiến trúc hệ thống
 ```
-BUS_TRACKING_SYSTEM/
-├── DBMS/
-│   ├── create_db.sql          # Tạo schema, bảng
-│   └── insert_value.sql       # Dữ liệu mẫu (routes, stops, buses)
-│
-├── docker/
-│   └── spark/
-│       └── Dockerfile         # Custom Spark image (cài Python deps)
-│
-├── streaming/
-│   ├── main.py                # Spark Structured Streaming job
-│   ├── spark_reader.py        # Đọc Kafka stream
-│   ├── db_reader.py           # Truy vấn PostgreSQL
-│   ├── redis_store.py         # Ghi trạng thái realtime vào Redis
-│   ├── schemas.py             # Schema Spark
-│   ├── config.py              # Cấu hình DB, Kafka
-│   └── test_db.py             # Test kết nối DB
-│
-├── kafka_consumer.py           # Consumer xử lý logic (mở rộng)
-├── GPS_Simulator.py            # Mô phỏng GPS xe buýt (Kafka producer)
-│
-├── spark_checkpoint/           # Checkpoint Spark Streaming
-├── docker-compose.yml          # Orchestrate Kafka, Spark, Postgres, Redis
-├── requirements.txt            # Python dependencies
-├── .env                        # Biến môi trường (DB, Kafka)
-└── README.md                   # Tài liệu dự án
+┌────────────────────┐
+│ Bus Simulator      │
+│ (Python)           │
+│ - Theo tuyến       │
+│ - Tốc độ ngẫu nhiên│
+└────────┬───────────┘
+│ Sự kiện GPS
+         ▼
+┌────────────────────┐
+│ Apache Kafka       │
+│ Event Broker       │
+└────────┬───────────┘
+         ▼
+┌────────────────────────────┐
+│ PostgreSQL                 │
+│ - bus_current_status       │
+│ - bus_gps_log              │
+│ - routes / stops           │
+└────────┬───────────────────┘
+         ▼
+┌────────────────────────────┐
+│ Flask Backend API          │
+│ - /api/buses               │
+│ - /api/stops               │
+│ - /api/bus/:id/gps-log     │
+└────────┬───────────────────┘
+         ▼
+┌────────────────────────────┐
+│ Frontend Dashboard         │
+│ - LeafletJS + OSM          │
+│ - Realtime rendering       │
+└────────────────────────────┘
 ```
-## 🚍 Mô phỏng dữ liệu GPS
+## ⚙️ Công nghệ sử dụng
 
+### Backend & Dữ liệu
+- **Python**
+- **Flask** (REST API)
+- **Apache Kafka**
+- **PostgreSQL**
+- **psycopg2**
+
+### Frontend
+- **HTML / CSS / JavaScript**
+- **Leaflet.js**
+- **OpenStreetMap**
+
+### Hạ tầng
+- **Docker**
+- **Docker Compose**
+
+---
+
+## 📁 Cấu trúc thư mục
+```
+bus_tracking_system/
+├── simulator/
+│ └── bus_simulator.py
+│
+├── backend/
+│ ├── app.py
+│ ├── db.py
+│ └── requirements.txt
+│
+├── dashboard/
+│ ├── index.html
+│ ├── map.js
+│ └── routes.json
+│
+├── docker-compose.yml
+└── README.md
+```
+
+
+## 🚍 Bus Simulator
+
+### Chức năng chính
 - Mỗi xe buýt có:
   - `bus_id`
-  - hướng di chuyển
-  - tọa độ GPS (`lat`, `lon`)
-  - tốc độ
-  - timestamp
-- Dữ liệu được gửi **liên tục theo thời gian thực** vào Kafka topic `bus_location`
+  - `route_id`
+  - `direction`
+  - `speed` (ngẫu nhiên)
+- Di chuyển **dọc theo hình học tuyến thực tế**
+- Tự động đổi chiều khi đến cuối tuyến
+- Phát dữ liệu GPS liên tục qua Kafka
+
+### Ý nghĩa
+✔ Không teleport ngẫu nhiên  
+✔ Tốc độ sát thực tế  
+✔ Chuyển động có hướng rõ ràng  
 
 ---
 
-## 🔄 Xử lý streaming với Spark
+## 🗄️ Thiết kế cơ sở dữ liệu
 
-- Spark đọc dữ liệu từ Kafka bằng **Structured Streaming**
-- Xử lý theo **micro-batch**
-- Parse dữ liệu JSON
-- Ghi dữ liệu vào PostgreSQL
-- Sử dụng **checkpoint** để đảm bảo:
-  - không mất dữ liệu khi restart
-  - đúng offset Kafka
+### Các bảng chính
+- `buses`
+- `routes`
+- `route_points`
+- `stops`
+- `route_stops`
+- `bus_current_status`
+- `bus_gps_log`
 
----
-
-## 🗄️ Database (PostgreSQL)
-
-Các bảng chính:
-
-- `bus_gps_log` – lưu lịch sử GPS
-- `buses` – danh sách xe buýt
-- `routes` – tuyến xe
-- `stops` – trạm dừng
-- `route_stops` – quan hệ tuyến – trạm
-- `bus_current_status` – trạng thái hiện tại (mở rộng)
+### Điểm nổi bật
+- Chuẩn hóa quan hệ tuyến – bến
+- Lưu thứ tự bến theo từng tuyến
+- Tách dữ liệu realtime và lịch sử GPS
 
 ---
 
-## ▶️ Cách chạy hệ thống
-```bash
-1️⃣ Khởi động toàn bộ hệ thống
+## 🌐 Backend API (Flask)
 
-docker compose up --build
-2️⃣ Theo dõi log của các service quan trọng
-🔹 Log simulator (mô phỏng GPS xe buýt)
+### `GET /api/buses`
+Trả về **trạng thái realtime của toàn bộ xe buýt**
+```json
+{
+  "bus_id": "01",
+  "route_id": 1,
+  "lat": 20.9601,
+  "lon": 105.7602,
+  "speed": 36,
+  "direction": 0,
+  "updated_at": "2026-02-09 12:30:21"
+}
+GET /api/stops
+Danh sách bến xe kèm các tuyến đi qua
 
-docker logs -f simulator
+json
+Copy code
+{
+  "stop_id": 5,
+  "stop_name": "Ga tàu điện La Khê",
+  "lat": 20.975,
+  "lon": 105.765,
+  "routes": [
+    { "route_id": 1, "stop_order": 4 },
+    { "route_id": 2, "stop_order": 6 }
+  ]
+}
+```
+## 🗺️ Dashboard Frontend
+Tính năng bản đồ
+- Hiển thị toàn bộ tuyến xe
+- Hiển thị bến xe
+- Hiển thị xe buýt đang di chuyển (icon màu)
+- Cập nhật realtime mỗi 2 giây
 
-🔹 Log Spark Streaming (ghi dữ liệu vào PostgreSQL)
+Tương tác bến xe
+- Click bến → hiển thị ETA
+- Chỉ hiển thị các xe:
+  - Thuộc tuyến đi qua bến
+  - Chưa đi qua bến
+  - 
+### ⏱️Tính ETA (Điểm then chốt)
 
-docker logs -f spark
+Vấn đề
+Khoảng cách thẳng không phản ánh đúng thời gian di chuyển trên tuyến cong.
 
-🔹 Log consumer (xử lý Kafka → Redis / DB)
+Giải pháp
+Tính khoảng cách dọc theo tuyến (distance along route):
 
-docker logs -f consumer
+Các bước:
+- Chiếu vị trí xe lên polyline tuyến
+- Chiếu vị trí bến lên cùng tuyến
+- Loại xe đã đi qua bến
 
-🔹 Log cleaner (xóa log cũ, chống tràn bộ nhớ)
+Tính:
+```
+ETA = (khoảng cách còn lại / vận tốc)
+Kết quả
+✔ Không trộn tuyến
+✔ Không tính xe đi ngược
+✔ ETA chính xác, ổn định
+```
+### 📊 Bảng log realtime
+Hiển thị:
+- ID xe
+- Vận tốc hiện tại
+- Bến sắp tới (xác định theo tuyến)
 
-docker logs -f cleaner
+## 🧠 Thách thức & cách giải quyết
+- ETA hiển thị xe sai tuyến
+→ Lọc chặt theo route_id & route_stops
 
-3️⃣ Truy cập vào PostgreSQL trong Docker
+- Popup bến chỉ xem được một lần
+→ Quản lý vòng đời popup & state
 
-Dùng lệnh sau để vào trực tiếp database:
+- UI realtime không nhất quán
+→ Dùng state tập trung (busState)
 
-docker exec -it postgres psql -U bus_user -d bus_tracking_system
+## 🚀 Hướng phát triển tiếp
+- WebSocket thay cho polling
+- Mô phỏng dừng xe & tăng/giảm tốc
+- Phân tích trễ chuyến
+- Mô phỏng lượng hành khách
+- Dashboard quản trị ITS
 
-Sau khi vào được psql, bạn có thể dùng các lệnh:
-
-\dt              -- Xem danh sách bảng
-\du              -- Xem danh sách user
-
-4️⃣ Các câu lệnh SQL theo dõi log GPS xe buýt
-🔹 Xem 10 bản ghi GPS mới nhất
-SELECT * 
-FROM gps_logs 
-ORDER BY timestamp DESC 
-LIMIT 10;
-
-🔹 Đếm tổng số log GPS
-SELECT COUNT(*) FROM gps_logs;
-
-🔹 Xem log của 1 xe cụ thể (ví dụ bus_id = 1)
-SELECT * 
-FROM gps_logs 
-WHERE bus_id = 1
-ORDER BY timestamp DESC 
-LIMIT 20;
-
-5️⃣ Xem bảng arrival – theo dõi xe đã tới bến nào
-🔹 Xem toàn bộ log xe tới bến
-SELECT * 
-FROM arrival_logs 
-ORDER BY arrival_time DESC;
-
-🔹 Xem xe nào vừa tới bến gần nhất
-SELECT bus_id, stop_id, arrival_time
-FROM arrival_logs
-ORDER BY arrival_time DESC
-LIMIT 10;
-
-🔹 Xem lịch sử xe tới các bến theo từng xe
-SELECT * 
-FROM arrival_logs
-WHERE bus_id = 1
-ORDER BY arrival_time DESC;
-🧪 Kiểm tra dữ liệu
-Kiểm tra trong PostgreSQL
-SELECT COUNT(*) FROM bus_gps_log;
-SELECT * FROM bus_gps_log ORDER BY ts DESC LIMIT 10;
-✅ Trạng thái hiện tại
-✔️ Kafka hoạt động ổn định
-
-✔️ Spark Structured Streaming chạy realtime
-
-✔️ Dữ liệu GPS được ghi vào PostgreSQL
-
-✔️ Hệ thống container hóa hoàn chỉnh
-
-🚀 Hướng phát triển (Future Work)
-Hiển thị bản đồ realtime (Leaflet / Mapbox)
-
-Phát hiện xe đến trạm
-
-Cảnh báo xe trễ tuyến
-
-Dashboard giám sát (Grafana)
-
-Machine Learning dự đoán thời gian đến trạm
-
-📖 Ghi chú
-Dự án được xây dựng nhằm mục đích học tập và nghiên cứu kiến trúc xử lý dữ liệu thời gian thực (Big Data Streaming).
-
-👤 Tác giả
-Hoàng Thiện Anh Nguyễn
+## 👤 Tác giả
+Nguyễn Hoàng Thiện Anh
+Realtime Bus Tracking System
+Dự án Full-stack / Data / Streaming
