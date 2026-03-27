@@ -150,7 +150,7 @@ bus_tracking_system/
 
 ### `GET /api/buses`
 Trả về **trạng thái realtime của toàn bộ xe buýt**
-```json
+```
 {
   "bus_id": "01",
   "route_id": 1,
@@ -160,11 +160,10 @@ Trả về **trạng thái realtime của toàn bộ xe buýt**
   "direction": 0,
   "updated_at": "2026-02-09 12:30:21"
 }
-GET /api/stops
+```
+### `GET /api/stops`
 Danh sách bến xe kèm các tuyến đi qua
-
-json
-Copy code
+```
 {
   "stop_id": 5,
   "stop_name": "Ga tàu điện La Khê",
