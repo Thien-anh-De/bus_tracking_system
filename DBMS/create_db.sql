@@ -1,4 +1,4 @@
--- ================= CLEANUP =================
+--  CLEANUP 
 DROP TABLE IF EXISTS bus_stop_events CASCADE;
 DROP TABLE IF EXISTS bus_gps_log CASCADE;
 DROP TABLE IF EXISTS bus_current_status CASCADE;
@@ -8,7 +8,7 @@ DROP TABLE IF EXISTS buses CASCADE;
 DROP TABLE IF EXISTS stops CASCADE;
 DROP TABLE IF EXISTS routes CASCADE;
 
--- ================= ROUTES =================
+--  ROUTES 
 CREATE TABLE routes (
     route_id INT PRIMARY KEY,
     route_name TEXT,
@@ -16,7 +16,7 @@ CREATE TABLE routes (
     end_depot TEXT
 );
 
--- ================= STOPS =================
+--  STOPS 
 CREATE TABLE stops (
     stop_id INT PRIMARY KEY,
     stop_name TEXT,
@@ -24,7 +24,7 @@ CREATE TABLE stops (
     lon DOUBLE PRECISION
 );
 
--- ================= ROUTE_STOPS =================
+--  ROUTE_STOPS 
 CREATE TABLE route_stops (
     route_id INT REFERENCES routes(route_id),
     stop_id INT REFERENCES stops(stop_id),
@@ -32,13 +32,13 @@ CREATE TABLE route_stops (
     PRIMARY KEY (route_id, stop_id)
 );
 
--- ================= BUSES =================
+--  BUSES 
 CREATE TABLE buses (
     bus_id VARCHAR(10) PRIMARY KEY,
     route_id INT REFERENCES routes(route_id)
 );
 
--- ================= ROUTE_POINTS =================
+--  ROUTE_POINTS 
 CREATE TABLE route_points (
     id SERIAL PRIMARY KEY,
     route_id INT REFERENCES routes(route_id),
@@ -48,7 +48,7 @@ CREATE TABLE route_points (
     UNIQUE (route_id, point_order)
 );
 
--- ================= GPS LOG =================
+--  GPS LOG 
 CREATE TABLE bus_gps_log (
     id SERIAL PRIMARY KEY,
     bus_id VARCHAR(10) REFERENCES buses(bus_id),
@@ -59,7 +59,7 @@ CREATE TABLE bus_gps_log (
     ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- ================= STOP EVENTS =================
+--  STOP EVENTS 
 CREATE TABLE bus_stop_events (
     id SERIAL PRIMARY KEY,
     bus_id VARCHAR(10) REFERENCES buses(bus_id),
@@ -69,7 +69,7 @@ CREATE TABLE bus_stop_events (
     distance_m DOUBLE PRECISION
 );
 
--- ================= CURRENT STATUS =================
+--  CURRENT STATUS 
 CREATE TABLE bus_current_status (
     bus_id VARCHAR(10) PRIMARY KEY,
     lat DOUBLE PRECISION,

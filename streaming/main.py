@@ -7,9 +7,7 @@ from schemas import get_gps_schema
 from spark_reader import read_kafka_stream
 from redis_store import RedisStore
 
-# =====================================================
 # CONFIG
-# =====================================================
 DB_HOST = "postgres"
 DB_PORT = "5432"
 DB_NAME = "bus_tracking_system"
@@ -28,9 +26,7 @@ DB_PROPERTIES = {
 
 CHECKPOINT_PATH = "/app/checkpoints/bus_tracking"
 
-# =====================================================
 # SPARK SESSION
-# =====================================================
 spark = (
     SparkSession.builder
     .appName("BusStreaming-STABLE-FINAL")
@@ -46,10 +42,8 @@ spark = (
 spark.sparkContext.setLogLevel("WARN")
 
 redis_store = RedisStore(host="redis")
-
-# =====================================================
+ 
 # READ KAFKA
-# =====================================================
 schema = get_gps_schema()
 
 stream_df = read_kafka_stream(
@@ -59,18 +53,14 @@ stream_df = read_kafka_stream(
     schema
 )
 
-# =====================================================
 # PROCESS BATCH
-# =====================================================
 def process_batch(batch_df, batch_id):
     if batch_df.isEmpty():
         return
 
     print(f"\n🚀 Processing batch {batch_id}")
 
-    # -------------------------------------------------
     # 1. PARSE + CHUẨN HÓA DATA
-    # -------------------------------------------------
     base_df = (
         batch_df
         .withColumn(
@@ -89,14 +79,12 @@ def process_batch(batch_df, batch_id):
         .cache()
     )
 
-    # -------------------------------------------------
+
     # 2. REDIS – REALTIME MAP
-    # -------------------------------------------------
     redis_store.save_location_batch(base_df.collect())
 
-    # -------------------------------------------------
+
     # 3. GPS LOG (APPEND OK)
-    # -------------------------------------------------
     base_df.write.jdbc(
         url=JDBC_URL,
         table="bus_gps_log",
@@ -104,9 +92,7 @@ def process_batch(batch_df, batch_id):
         properties=DB_PROPERTIES
     )
 
-    # -------------------------------------------------
     # 4. CURRENT STATUS (LẤY BẢN GHI MỚI NHẤT MỖI XE)
-    # -------------------------------------------------
     w = Window.partitionBy("bus_id").orderBy(col("ts").desc())
 
     latest_df = (
@@ -123,7 +109,7 @@ def process_batch(batch_df, batch_id):
         )
     )
 
-    # 👉 GHI VÀO BẢNG TẠM
+    #  GHI VÀO BẢNG TẠM
     temp_table = "bus_current_status_tmp"
 
     latest_df.write.jdbc(
@@ -133,7 +119,7 @@ def process_batch(batch_df, batch_id):
         properties=DB_PROPERTIES
     )
 
-    # 👉 UPSERT BẰNG SQL (QUAN TRỌNG)
+    #  UPSERT BẰNG SQL
     import psycopg2
     conn = psycopg2.connect(
         host=DB_HOST,
@@ -163,9 +149,7 @@ def process_batch(batch_df, batch_id):
 
     base_df.unpersist()
 
-# =====================================================
 # START STREAM
-# =====================================================
 query = (
     stream_df.writeStream
     .foreachBatch(process_batch)

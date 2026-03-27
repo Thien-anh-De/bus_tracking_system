@@ -5,7 +5,7 @@ from db import get_conn
 app = Flask(__name__)
 CORS(app)
 
-# ================= API =================
+# API
 
 @app.route("/api/buses")
 def buses():

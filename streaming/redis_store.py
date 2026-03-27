@@ -26,8 +26,6 @@ class RedisStore:
                     "direction": r.get("direction", 0)
                 })
             )
-
-            # ✅ DÙNG ts (ĐÃ CAST) – KHÔNG DÙNG timestamp
             pipe.set(
                 f"bus:{bus_id}:last_update",
                 r["ts"].strftime("%Y-%m-%d %H:%M:%S")

@@ -6,9 +6,7 @@ from datetime import datetime
 import psycopg2
 from confluent_kafka import Producer
 
-# ======================================================
 # CONFIG
-# ======================================================
 KAFKA_BOOTSTRAP = "kafka:9093"
 TOPIC = "bus_location"
 
@@ -27,23 +25,17 @@ DB_CONFIG = {
     "password": "Thienanh1906@"
 }
 
-# ======================================================
 # LOGGER
-# ======================================================
 def log(msg):
     print(f"[SIMU {datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
 
-# ======================================================
 # KAFKA
-# ======================================================
 producer = Producer({
     "bootstrap.servers": KAFKA_BOOTSTRAP,
     "linger.ms": 10
 })
 
-# ======================================================
 # GEO
-# ======================================================
 def haversine(lat1, lon1, lat2, lon2):
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
     dphi = math.radians(lat2 - lat1)
@@ -75,9 +67,7 @@ def locate(segs, dist):
             )
     return segs[-1][1]
 
-# ======================================================
 # LOAD DATA
-# ======================================================
 log("🚀 Simulator starting...")
 
 conn = psycopg2.connect(**DB_CONFIG)
@@ -142,16 +132,14 @@ conn.close()
 log("✅ Simulator READY")
 log("------------------------------------------")
 
-# ======================================================
 # MAIN LOOP
-# ======================================================
 while True:
     now = time.time()
 
     for b in buses:
         lat, lon = locate(b["segments"], b["dist"])
 
-        # ===== STOP LOGIC =====
+        # STOP LOGIC
         speed = b["speed"]
 
         if b["stop_until"] and now < b["stop_until"]:
@@ -184,7 +172,7 @@ while True:
         b["speed"] = speed
         b["dist"] += (speed * 1000 / 3600) * SLEEP_TIME
 
-        # ===== END ROUTE =====
+        # END ROUTE
         if b["dist"] >= b["route_len"]:
             b["direction"] = 1 - b["direction"]
             seg, ln, _, _ = routes[b["route_id"]][b["direction"]]
