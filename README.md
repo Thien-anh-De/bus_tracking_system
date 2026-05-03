@@ -1,238 +1,117 @@
-# 🚌 Bus Tracking System  
-### Nền tảng theo dõi xe buýt realtime & dự đoán ETA
+# 🚌 Bus Tracking System - Realtime Streaming Pipeline
 
-**Bus Tracking System** là một hệ thống **full-stack theo thời gian thực**, mô phỏng chuyển động xe buýt, xử lý dữ liệu GPS dạng streaming và trực quan hóa **xe buýt – tuyến đường – bến xe – ETA** trên bản đồ tương tác.
+[![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com/)
+[![Kafka](https://img.shields.io/badge/Apache_Kafka-Event_Broker-black.svg)](https://kafka.apache.org/)
+[![Spark](https://img.shields.io/badge/Apache_Spark-Stream_Processing-orange.svg)](https://spark.apache.org/)
+[![Redis](https://img.shields.io/badge/Redis-In--Memory_State-red.svg)](https://redis.io/)
+[![Flask](https://img.shields.io/badge/Flask-SSE_Backend-green.svg)](https://flask.palletsprojects.com/)
 
-> Dự án thể hiện năng lực thực hành về **Hệ phân tán (Distributed Systems)**, **Dữ liệu thời gian thực (Streaming Data)**, **Backend API**, và **Realtime Visualization**, phù hợp sử dụng cho **portfolio cá nhân và CV**.
+**Bus Tracking System** là một hệ thống phần mềm full-stack mô phỏng, xử lý luồng dữ liệu lớn (streaming data) và trực quan hóa vị trí xe buýt theo thời gian thực. Dự án được thiết kế theo **Kiến trúc hướng sự kiện (Event-driven Architecture)** và **Mô hình Lambda/Kappa**, với khả năng chịu tải cao, tính toán ETA (Estimated Time of Arrival) chính xác dựa trên hình học không gian, và luồng dữ liệu trơn tru từ hạ tầng Backend đến giao diện Frontend thông qua Server-Sent Events (SSE).
 
----
-
-## 📌 Bài toán đặt ra
-
-Hệ thống giao thông công cộng cần:
-- Theo dõi phương tiện theo thời gian thực
-- Ước lượng chính xác thời gian xe đến bến (ETA)
-- Trực quan hóa dữ liệu dễ hiểu cho người dùng và nhà vận hành
-
-Tuy nhiên, nhiều hệ thống demo thường gặp vấn đề:
-- Trộn xe của các tuyến khác nhau khi tính ETA
-- Tính ETA bằng khoảng cách thẳng → sai lệch lớn
-- Dữ liệu realtime không nhất quán
-
-👉 Dự án này giải quyết các hạn chế trên bằng cách xây dựng **hệ thống theo dõi xe buýt realtime có nhận thức tuyến (route-aware)** từ đầu.
+> **Lưu ý:** Dự án này được thiết kế theo tiêu chuẩn công nghiệp (Production-ready design patterns), thể hiện năng lực làm chủ các hệ thống phân tán, xử lý dữ liệu luồng (Streaming Data Pipeline) và kiến trúc ứng dụng Web hiệu năng cao. Phù hợp làm đồ án tốt nghiệp, bài tập lớn hoặc danh mục hồ sơ năng lực (Portfolio/CV).
 
 ---
 
-## 🎯 Mục tiêu dự án
+## 🎯 Bài Toán & Giải Pháp Cốt Lõi
 
-- Mô phỏng chuyển động xe buýt trên các tuyến cố định
-- Theo dõi nhiều xe buýt theo thời gian thực
-- Tính **ETA chính xác cho từng bến, từng tuyến**
-- Hiển thị dữ liệu realtime trên bản đồ tương tác
-- Thiết kế kiến trúc rõ ràng, dễ mở rộng
+Hệ thống giao thông công cộng thông minh (ITS - Intelligent Transport Systems) luôn đối mặt với các thách thức về **độ trễ dữ liệu**, **tính chính xác của thời gian dự kiến (ETA)**, và **nút thắt cổ chai hiệu năng (bottleneck)** khi số lượng người dùng truy cập bản đồ đồng thời tăng cao.
 
----
-
-## 🏗️ Kiến trúc hệ thống
-```
-┌────────────────────┐
-│ Bus Simulator      │
-│ (Python)           │
-│ - Theo tuyến       │
-│ - Tốc độ ngẫu nhiên│
-└────────┬───────────┘
-│ Sự kiện GPS
-         ▼
-┌────────────────────┐
-│ Apache Kafka       │
-│ Event Broker       │
-└────────┬───────────┘
-         ▼
-┌────────────────────────────┐
-│ PostgreSQL                 │
-│ - bus_current_status       │
-│ - bus_gps_log              │
-│ - routes / stops           │
-└────────┬───────────────────┘
-         ▼
-┌────────────────────────────┐
-│ Flask Backend API          │
-│ - /api/buses               │
-│ - /api/stops               │
-│ - /api/bus/:id/gps-log     │
-└────────┬───────────────────┘
-         ▼
-┌────────────────────────────┐
-│ Frontend Dashboard         │
-│ - LeafletJS + OSM          │
-│ - Realtime rendering       │
-└────────────────────────────┘
-```
-## ⚙️ Công nghệ sử dụng
-
-### Backend & Dữ liệu
-- **Python**
-- **Flask** (REST API)
-- **Apache Kafka**
-- **PostgreSQL**
-- **psycopg2**
-
-### Frontend
-- **HTML / CSS / JavaScript**
-- **Leaflet.js**
-- **OpenStreetMap**
-
-### Hạ tầng
-- **Docker**
-- **Docker Compose**
+Dự án này giải quyết triệt để các vấn đề trên bằng những thiết kế sau:
+1. **Kiến trúc luồng dữ liệu siêu trễ thấp (Ultra-low Latency Pipeline):** Thay vì Frontend liên tục gọi (Polling) vào Database quan hệ, hệ thống sử dụng **Apache Spark** để ghi trạng thái thời gian thực trực tiếp vào RAM qua **Redis**, sau đó **Flask Backend** sử dụng giao thức **SSE (Server-Sent Events)** đẩy (push) dữ liệu lên Frontend.
+2. **Thuật toán ETA nhận thức tuyến (Route-aware ETA):** Không sử dụng khoảng cách đường chim bay, hệ thống chiếu tọa độ GPS (Projection) lên ma trận polyline của tuyến đường (Distance-Along-Route) để tính toán chuẩn xác khoảng cách và thời gian di chuyển.
+3. **Chuyển động mượt mà (60fps Smooth Animation):** Giải quyết bài toán giật lag tọa độ đặc trưng của các hệ thống GPS bằng thuật toán nội suy hình học (Linear Interpolation) tích hợp Easing function ngay trên giao diện bản đồ.
 
 ---
 
-## 📁 Cấu trúc thư mục
+## 🏗️ Kiến Trúc Hệ Thống (System Architecture)
+
+```text
+┌────────────────────┐      ┌────────────────────┐      ┌───────────────────────────┐
+│ Bus Simulator      │      │ Apache Kafka       │      │ Apache Spark (Streaming)  │
+│ (Python)           ├─────►│ (Event Broker)     ├─────►│ - Windowing / Aggregation │
+│ - Haversine Engine │      │ Topic: bus_location│      │ - Data Normalization      │
+└────────────────────┘      └────────────────────┘      └──────┬─────────┬──────────┘
+                                                               │         │
+                                      ┌────────────────────────▼─┐     ┌─▼────────────────────────┐
+                                      │ PostgreSQL (Cold Store)  │     │ Redis (Hot State)        │
+                                      │ - bus_gps_log (History)  │     │ - bus:{id}:location      │
+                                      │ - route_points / stops   │     │ - bus:{id}:last_update   │
+                                      └─────────────┬────────────┘     └─┬────────────────────────┘
+                                                    │                    │
+┌───────────────────────────┐                 ┌─────▼────────────────────▼──┐
+│ Web GIS Dashboard         │ ◄───(SSE)───────┤ Flask Backend API           │
+│ - Leaflet.js / OSM        │                 │ - /api/stream/buses         │
+│ - 60fps Marker Animation  │                 │ - /api/stops/eta/:id        │
+└───────────────────────────┘ ◄───(Fetch)─────┤ (Spatial Math Engine)       │
+                                              └─────────────────────────────┘
 ```
-bus_tracking_system/
-├── simulator/
-│ └── bus_simulator.py
-│
-├── backend/
-│ ├── app.py
-│ ├── db.py
-│ └── requirements.txt
-│
-├── dashboard/
-│ ├── index.html
-│ ├── map.js
-│ └── routes.json
-│
-├── docker-compose.yml
-└── README.md
-```
-
-
-## 🚍 Bus Simulator
-
-### Chức năng chính
-- Mỗi xe buýt có:
-  - `bus_id`
-  - `route_id`
-  - `direction`
-  - `speed` (ngẫu nhiên)
-- Di chuyển **dọc theo hình học tuyến thực tế**
-- Tự động đổi chiều khi đến cuối tuyến
-- Phát dữ liệu GPS liên tục qua Kafka
-
-### Ý nghĩa
-✔ Không teleport ngẫu nhiên  
-✔ Tốc độ sát thực tế  
-✔ Chuyển động có hướng rõ ràng  
 
 ---
 
-## 🗄️ Thiết kế cơ sở dữ liệu
+## ⚙️ Công Nghệ & Stack Trọng Tâm
 
-### Các bảng chính
-- `buses`
-- `routes`
-- `route_points`
-- `stops`
-- `route_stops`
-- `bus_current_status`
-- `bus_gps_log`
+### 1. Data Ingestion & Streaming Pipeline
+- **Python Simulator:** Trình giả lập luồng GPS tạo ra hàng ngàn sự kiện với tốc độ ngẫu nhiên, tuân thủ hình học tuyến thực tế bằng công thức *Haversine*.
+- **Apache Kafka (Zookeeper):** Đóng vai trò làm bộ đệm sự kiện trung tâm (Message Broker) chịu tải cao.
+- **Apache Spark (Structured Streaming):** Đọc dữ liệu từ Kafka micro-batches, chuẩn hóa và tách luồng ghi song song (Forking).
 
-### Điểm nổi bật
-- Chuẩn hóa quan hệ tuyến – bến
-- Lưu thứ tự bến theo từng tuyến
-- Tách dữ liệu realtime và lịch sử GPS
+### 2. Storage & Caching
+- **Redis (In-memory Store):** Hoạt động như một *Write-through Cache* hoặc trạng thái Real-time. Xóa bỏ hoàn toàn áp lực truy vấn I/O lên Database quan hệ.
+- **PostgreSQL:** Lưu trữ dữ liệu danh mục (Tuyến, Điểm dừng, Lộ trình) và Log lịch sử chạy xe (`bus_gps_log`) phục vụ truy vấn hoặc Data Analytics/Machine Learning sau này.
+
+### 3. API & Presentation Layer
+- **Flask (Python API):** Backend cung cấp các REST API lấy thông tin định tuyến và tính toán ETA không gian mạng. Tích hợp endpoint kết nối liên tục (Long-lived connection).
+- **Server-Sent Events (SSE):** Tối ưu hóa Web socket cho luồng dữ liệu 1 chiều (One-way push) từ Server xuống Client.
+- **Leaflet.js + OpenStreetMap:** Hệ thống Web GIS render bản đồ hiển thị tương tác mượt mà.
+- **Nginx:** Tối ưu hóa Proxy, tắt tính năng buffering để luồng SSE được truyền đi tức thời (Zero-delay).
 
 ---
 
-## 🌐 Backend API (Flask)
+## 🚀 Hướng Dẫn Cài Đặt & Khởi Chạy
 
-### `GET /api/buses`
-Trả về **trạng thái realtime của toàn bộ xe buýt**
+Toàn bộ hệ thống được đóng gói tự động qua Docker. Chỉ cần máy bạn đã cài đặt **Docker** và **Docker Compose**.
+
+### Bước 1: Khởi động toàn bộ hạ tầng
+```bash
+docker-compose up --build -d
 ```
-{
-  "bus_id": "01",
-  "route_id": 1,
-  "lat": 20.9601,
-  "lon": 105.7602,
-  "speed": 36,
-  "direction": 0,
-  "updated_at": "2026-02-09 12:30:21"
-}
+Lệnh này sẽ tự động tải các Image, cấu hình network, seed database (tạo bảng, chèn routes), khởi động Kafka, Spark job, Backend và Frontend. Quá trình có thể mất khoảng 2-5 phút trong lần chạy đầu tiên.
+
+### Bước 2: Truy cập hệ thống
+- **Web Dashboard:** `http://localhost:8080`
+- **Backend API (Health check):** `http://localhost:5050/health`
+- Lắng nghe luồng dữ liệu thật (Raw SSE Stream): `http://localhost:5050/api/stream/buses`
+
+### Bước 3: Dọn dẹp
+```bash
+docker-compose down -v
 ```
-### `GET /api/stops`
-Danh sách bến xe kèm các tuyến đi qua
-```
-{
-  "stop_id": 5,
-  "stop_name": "Ga tàu điện La Khê",
-  "lat": 20.975,
-  "lon": 105.765,
-  "routes": [
-    { "route_id": 1, "stop_order": 4 },
-    { "route_id": 2, "stop_order": 6 }
-  ]
-}
-```
-## 🗺️ Dashboard Frontend
-Tính năng bản đồ
-- Hiển thị toàn bộ tuyến xe
-- Hiển thị bến xe
-- Hiển thị xe buýt đang di chuyển (icon màu)
-- Cập nhật realtime mỗi 2 giây
 
-Tương tác bến xe
-- Click bến → hiển thị ETA
-- Chỉ hiển thị các xe:
-  - Thuộc tuyến đi qua bến
-  - Chưa đi qua bến
-  - 
-### ⏱️Tính ETA (Điểm then chốt)
+---
 
-Vấn đề
-Khoảng cách thẳng không phản ánh đúng thời gian di chuyển trên tuyến cong.
+## 🧠 Điểm Nổi Bật Về Kỹ Thuật (Technical Highlights)
 
-Giải pháp
-Tính khoảng cách dọc theo tuyến (distance along route):
+### 1. Thuật toán ETA (Estimated Time of Arrival)
+Thay vì sử dụng khoảng cách tuyến tính `$D = \sqrt{(x_2-x_1)^2 + (y_2-y_1)^2}$` (sai số cực lớn với đường cong vòng vèo), hệ thống tải lưới tọa độ `route_points` từ CSDL, chiếu điểm GPS hiện hành lên đường đa tuyến (Polyline Projection), sau đó tính tổng độ dài các phân đoạn để ra khoảng cách di chuyển thực tế. Toàn bộ logic nặng nề này được chuyển về **Python Backend** để giảm tải cho phần cứng phía Client.
 
-Các bước:
-- Chiếu vị trí xe lên polyline tuyến
-- Chiếu vị trí bến lên cùng tuyến
-- Loại xe đã đi qua bến
+### 2. Mô hình Push Data với SSE + Redis
+Frontend không cần gửi request liên tục (Polling). Khi trang vừa load, nó mở một kênh giao tiếp (`EventSource`). Backend sẽ liên tục quét siêu tốc trên RAM (Redis) và đẩy tọa độ về mỗi 1.5 giây. Nếu có 10,000 người dùng, chỉ có 10,000 socket kết nối ở dạng ngủ chờ nhận data, giúp giảm thiểu overhead của HTTP Headers và CPU ở Backend xuống mức vô cùng nhỏ so với cơ chế truyền thống.
 
-Tính:
-```
-ETA = (khoảng cách còn lại / vận tốc)
-Kết quả
-✔ Không trộn tuyến
-✔ Không tính xe đi ngược
-✔ ETA chính xác, ổn định
-```
-### 📊 Bảng log realtime
-Hiển thị:
-- ID xe
-- Vận tốc hiện tại
-- Bến sắp tới (xác định theo tuyến)
+### 3. Auto-Healing Animation trên UI
+Giao diện không đơn thuần là xóa Marker cũ và vẽ Marker mới. Hàm `animateMarker()` tích hợp vòng lặp `requestAnimationFrame(60fps)` giúp chiếc xe trượt đi (slide) trên bản đồ một cách tự nhiên. Nếu có nhiễu sóng hoặc lỗi mạng (khoảng cách sai lệch lớn hơn 0.01 độ), thuật toán tự động nhận diện đó là Glitch và hủy Animation để dịch chuyển tức thời (Teleport), đảm bảo đúng thực tế.
 
-## 🧠 Thách thức & cách giải quyết
-- ETA hiển thị xe sai tuyến
-→ Lọc chặt theo route_id & route_stops
+---
 
-- Popup bến chỉ xem được một lần
-→ Quản lý vòng đời popup & state
+## 🛣️ Hướng Phát Triển Tiếp Theo (Roadmap)
 
-- UI realtime không nhất quán
-→ Dùng state tập trung (busState)
+Dự án đã hoàn chỉnh nền tảng kiến trúc. Trong tương lai có thể mở rộng theo các hướng:
+- **Tích hợp Machine Learning:** Sử dụng dữ liệu log lịch sử để huấn luyện mô hình dự đoán trễ chuyến, tính toán trọng số kẹt xe vào thuật toán ETA hiện hành.
+- **Scaling Backend:** Triển khai API bằng `FastAPI` với `asyncio` để chịu tải socket tốt hơn nữa.
+- **Thêm tính năng Bus Stops Flow:** Mô phỏng số lượng hành khách lên/xuống tại bến.
 
-## 🚀 Hướng phát triển tiếp
-- WebSocket thay cho polling
-- Mô phỏng dừng xe & tăng/giảm tốc
-- Phân tích trễ chuyến
-- Mô phỏng lượng hành khách
-- Dashboard quản trị ITS
+---
 
-## 👤 Tác giả
-Nguyễn Hoàng Thiện Anh
-Realtime Bus Tracking System
-Dự án Full-stack / Data / Streaming
+## 👤 Tác Giả
+
+**Nguyễn Hoàng Thiện Anh**
+*Realtime Bus Tracking System - Đồ án Hệ thống phân tán & Xử lý Dữ liệu Luồng.*
