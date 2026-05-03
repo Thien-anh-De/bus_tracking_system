@@ -38,7 +38,6 @@ def buses():
             "lon": float(r[3]),
             "speed": r[4],
             "direction": r[5],
-            # ✅ FIX OFFLINE: ISO 8601
             "updated_at": r[6].isoformat()
         }
         for r in rows

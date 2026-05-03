@@ -15,7 +15,7 @@ EARTH_RADIUS = 6371000
 
 STOP_RADIUS = 20        # m
 SLOW_RADIUS = 80        # m
-STOP_TIME = 12          # s
+STOP_TIME = 8          # s
 
 DB_CONFIG = {
     "host": "postgres",

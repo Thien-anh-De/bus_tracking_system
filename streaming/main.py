@@ -84,7 +84,7 @@ def process_batch(batch_df, batch_id):
     redis_store.save_location_batch(base_df.collect())
 
 
-    # 3. GPS LOG (APPEND OK)
+    # 3. GPS LOG
     base_df.write.jdbc(
         url=JDBC_URL,
         table="bus_gps_log",
